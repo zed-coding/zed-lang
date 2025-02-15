@@ -70,7 +70,7 @@ impl ZedProject {
         // Create main.zed
         let main_content = r#"/* Main entry point for Zed program */
 
-printLn("Hello from Zed!");
+println("Hello from Zed!");
 "#;
         fs::write(self.root.join("src").join("main.zed"), main_content)?;
 

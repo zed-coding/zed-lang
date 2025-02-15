@@ -66,9 +66,9 @@ fn factorial(n) {
 ```rust
 // If statement
 if (condition) {
-    printLn("True");
+    println("True");
 } else {
-    printLn("False");
+    println("False");
 }
 
 // While loop
@@ -79,7 +79,7 @@ while (condition) {
 
 #### Built-in Functions
 ```rust
-printLn("Hello, World!");  // Print with newline
+println("Hello, World!");  // Print with newline
 ```
 
 #### Operators
@@ -163,7 +163,7 @@ The `zed.json` file contains project settings:
 The extension provides:
 - Syntax highlighting for:
   - Keywords (if, else, while, fn, return)
-  - Built-in functions (printLn)
+  - Built-in functions (println)
   - Strings with escape sequences
   - Numbers
   - Comments (both // and /* */)
@@ -175,7 +175,7 @@ The extension provides:
 ### Hello World
 ```rust
 // No main function needed - code executes from top to bottom
-printLn("Hello, World!");
+println("Hello, World!");
 ```
 
 ### Factorial Calculator
@@ -188,9 +188,9 @@ fn factorial(n) {
 }
 
 // Program execution starts here
-printLn("Calculating factorial of 5:");
+println("Calculating factorial of 5:");
 result = factorial(5);
-printLn(result);
+println(result);
 ```
 
 ### Complex Example
@@ -236,14 +236,14 @@ fn is_prime(n) {
 }
 
 // Program execution starts at the top level
-printLn("Finding prime Fibonacci numbers:");
+println("Finding prime Fibonacci numbers:");
 count = 0;
 i = 2;
 
 while (count < 5) {
     fib = fib_loop(i);
     if (is_prime(fib)) {
-        printLn(fib);
+        println(fib);
         count = count + 1;
     }
     i = i + 1;

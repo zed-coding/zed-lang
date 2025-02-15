@@ -56,45 +56,45 @@ fn is_prime(n) {
 }
 
 /* Main program starts here */
-printLn("=== Complex Zed Example ===\n");
+println("=== Complex Zed Example ===\n");
 
 // Test power function
-printLn("Testing power function...\n");
+println("Testing power function...\n");
 p = power(2, 8);
-printLn("2^8 = ");
-printLn(p);
-printLn("\n");
+println("2^8 = ");
+println(p);
+println("\n");
 
 // Calculate and print first 10 Fibonacci numbers
-printLn("First 10 Fibonacci numbers:\n");
+println("First 10 Fibonacci numbers:\n");
 i = 0;
 while (i < 10) {
     result = fib_loop(i);
-    printLn(result);
-    printLn("\n");
+    println(result);
+    println("\n");
     i = i + 1;
 }
 
 // Find first 5 prime Fibonacci numbers
-printLn("First 5 prime Fibonacci numbers:\n");
+println("First 5 prime Fibonacci numbers:\n");
 count = 0;
 i = 2;
 while (count < 5) {
     fib = fib_loop(i);
     if (is_prime(fib)) {
-        printLn(fib);
-        printLn("\n");
+        println(fib);
+        println("\n");
         count = count + 1;
     }
     i = i + 1;
 }
 
 // Calculate a complex mathematical expression
-printLn("Complex calculation:\n");
+println("Complex calculation:\n");
 x = 10;
 y = 5;
 z = power(x + y, 2) + power(x - y, 2);
-printLn(z);
-printLn("\n");
+println(z);
+println("\n");
 
-printLn("=== Program Complete ===");
+println("=== Program Complete ===");

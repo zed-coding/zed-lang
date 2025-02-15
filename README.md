@@ -17,7 +17,7 @@ zed new my-project
 cd my-project
 
 # Write some code in src/main.zed
-printLn("Hello from Zed!\n");
+println("Hello from Zed!\n");
 
 # Build and run
 zed run
@@ -43,10 +43,10 @@ fn factorial(n) {
     return n * factorial(n - 1);
 }
 
-printLn("Calculating factorial of 5:\n");
+println("Calculating factorial of 5:\n");
 result = factorial(5);
-printLn(result);
-printLn("\n");
+println(result);
+println("\n");
 ```
 
 ## Documentation

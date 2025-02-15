@@ -564,7 +564,7 @@ impl Lexer {
             "while" => TokenType::While,
             "fn" => TokenType::Function,
             "return" => TokenType::Return,
-            "printLn" => TokenType::PrintLn,
+            "println" => TokenType::PrintLn,
             "from" => TokenType::From,
             _ => TokenType::Identifier(identifier),
         };

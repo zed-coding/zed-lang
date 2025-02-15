@@ -55,7 +55,7 @@
               },
               {
                   "name": "support.function.builtin.zed",
-                  "match": "\\b(printLn|input|len)\\b"
+                  "match": "\\b(println|input|len)\\b"
               }
           ]
       },

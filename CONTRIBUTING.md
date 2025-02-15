@@ -22,8 +22,8 @@ We use GitHub to host code, to track issues and feature requests, as well as acc
 ## Any contributions you make will be under the Apache 2.0 License
 In short, when you submit code changes, your submissions are understood to be under the same [Apache 2.0 License](LICENSE) that covers the project. Feel free to contact the maintainers if that's a concern.
 
-## Report bugs using GitHub's [issue tracker](https://github.com/zed-lang/zed-lang/issues)
-We use GitHub issues to track public bugs. Report a bug by [opening a new issue](https://github.com/zed-lang/zed-lang/issues/new).
+## Report bugs using GitHub's [issue tracker](https://github.com/zed-coding/zed-lang/issues)
+We use GitHub issues to track public bugs. Report a bug by [opening a new issue](https://github.com/zed-coding/zed-lang/issues/new).
 
 ## Write bug reports with detail, background, and sample code
 
@@ -52,7 +52,7 @@ We use GitHub issues to track public bugs. Report a bug by [opening a new issue]
 
 2. Clone and build:
    ```bash
-   git clone https://github.com/zed-lang/zed-lang
+   git clone https://github.com/zed-coding/zed-lang
    cd zed-lang
    make
    ```
@@ -147,7 +147,7 @@ If you're interested in helping establish the test framework, please:
 
 1. Update your fork to the latest upstream:
    ```bash
-   git remote add upstream https://github.com/zed-lang/zed-lang.git
+   git remote add upstream https://github.com/zed-coding/zed-lang.git
    git fetch upstream
    git checkout master
    git merge upstream/master

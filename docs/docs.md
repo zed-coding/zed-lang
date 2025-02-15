@@ -22,7 +22,7 @@ Zed is a simple programming language that compiles to x86_64 assembly. It featur
 ### Building from Source
 ```bash
 # Clone the repository
-git clone https://github.com/zed-lang/zed-lang
+git clone https://github.com/zed-coding/zed-lang
 cd zed-lang
 
 # Build everything

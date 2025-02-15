@@ -22,6 +22,6 @@
           "path": "./syntaxes/zed.tmLanguage.json"
       }]
   },
-  "repository": {"url": "https://github.com/zed-lang/zed-lang"},
+  "repository": {"url": "https://github.com/zed-coding/zed-lang"},
   "license": "Apache-2.0"
 }

@@ -1,0 +1,3 @@
+/* Main entry point for Zed program */
+
+printLn("Hello from Zed!")

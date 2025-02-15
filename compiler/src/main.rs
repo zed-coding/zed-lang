@@ -2,6 +2,7 @@ mod ast;
 mod codegen;
 mod lexer;
 mod parser;
+mod colors;
 
 use codegen::CodeGenerator;
 use lexer::{Lexer, Result};

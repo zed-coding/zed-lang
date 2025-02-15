@@ -275,7 +275,7 @@ Unlike languages like C, Java, or Rust, Zed does not use a main() function as an
 5. Linking: Uses GNU linker (ld)
 
 ### Assembly Generation
-The compiler generates position-independent x86_64 assembly code with:
+The compiler generates position-independent x86_64 assembly codewith:
 - Proper function calling conventions
 - Stack frame management
 - String handling

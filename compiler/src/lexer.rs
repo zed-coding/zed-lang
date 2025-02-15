@@ -35,21 +35,34 @@ impl CompilerError {
     }
 
     pub fn format_error(&self) -> String {
+        use crate::colors::{error_style, error_location_style, error_source_style, error_pointer_style};
+
         let mut error = String::new();
-        error.push_str(&format!("error: {}\n", self.get_error_message()));
-        error.push_str(&format!(
+
+        // Error message
+        error.push_str(&error_style().apply(&format!("error: {}\n", self.get_error_message())));
+
+        // Location
+        error.push_str(&error_location_style().apply(&format!(
             "  --> {}:{}:{}\n",
             self.location.file, self.location.line, self.location.column
-        ));
-        error.push_str(&format!(
+        )));
+
+        // Source line with line number
+        error.push_str(&error_source_style().apply(&format!(
             "{:4} | {}\n",
             self.location.line, self.source_line
-        ));
-        error.push_str("     | ");
+        )));
+
+        // Error pointer
+        let mut pointer = String::from("     | ");
         for _ in 0..self.location.column - 1 {
-            error.push(' ');
+            pointer.push(' ');
         }
-        error.push_str("^\n");
+        pointer.push('^');
+        error.push_str(&error_pointer_style().apply(&pointer));
+        error.push('\n');
+
         error
     }
 

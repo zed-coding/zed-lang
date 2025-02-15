@@ -151,6 +151,7 @@ printLn("Hello from Zed!");
             anyhow::bail!(
                 "Compilation failed:\n{}",
                 String::from_utf8_lossy(&output.stderr)
+                .red()
             );
         }
         Ok(output)

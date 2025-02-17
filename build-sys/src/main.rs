@@ -60,15 +60,37 @@ impl ZedProject {
         Ok(Self { root, config })
     }
 
+    fn copy_stdlib(&self) -> Result<()> {
+        let stdlib_path = Path::new("..").join("std");
+        let project_stdlib_path = self.root.join("src").join("std");
+
+        // Create stdlib directory
+        fs::create_dir_all(&project_stdlib_path)?;
+
+        // Copy all .zed files from stdlib
+        for entry in fs::read_dir(&stdlib_path)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.extension().map_or(false, |ext| ext == "zed") {
+                fs::copy(&path, project_stdlib_path.join(path.file_name().unwrap()))?;
+            }
+        }
+        Ok(())
+    }
+
     fn create(&self) -> Result<()> {
         // Create project directories
-        let dirs = ["src", "examples", "target"];
+        let dirs = ["src", "src/std", "examples", "target"];
         for dir in dirs {
             fs::create_dir_all(self.root.join(dir))?;
         }
 
+        // Copy standard library
+        self.copy_stdlib()?;
+
         // Create main.zed
         let main_content = r#"/* Main entry point for Zed program */
+@include "std/io.zed";
 
 println("Hello from Zed!");
 "#;
@@ -103,13 +125,22 @@ println("Hello from Zed!");
         let build_dir = target_dir.join(build_type);
         fs::create_dir_all(&build_dir)?;
 
-        // Find all .zed files
+        // Find all .zed files including stdlib
         let zed_files: Vec<_> = WalkDir::new(self.root.join("src"))
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| e.path().extension().map_or(false, |ext| ext == "zed"))
             .collect();
 
+        // Sort files so main.zed is last (for linking order)
+        let mut zed_files = zed_files;
+        zed_files.sort_by(|a, b| {
+            let a_is_main = a.file_name().to_string_lossy().contains("main.zed");
+            let b_is_main = b.file_name().to_string_lossy().contains("main.zed");
+            a_is_main.cmp(&b_is_main)
+        });
+
+        // Compile and assemble each file
         for entry in zed_files {
             let source_path = entry.path();
             let asm_path = build_dir.join(

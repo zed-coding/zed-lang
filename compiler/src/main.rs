@@ -9,7 +9,24 @@ use lexer::{Lexer, Result};
 use parser::Parser;
 use std::env;
 use std::fs;
+use std::path::Path;
 use std::process;
+
+fn is_main_file(filepath: &str) -> bool {
+    Path::new(filepath)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map_or(false, |name| name == "main.zed")
+}
+
+fn compile(source: &str, filename: &str) -> Result<String> {
+    let lexer = Lexer::new(source, filename.to_string());
+    let mut parser = Parser::new(lexer, Path::new(filename))?;
+    let ast = parser.parse_program()?;
+
+    let mut generator = CodeGenerator::new(is_main_file(filename));
+    Ok(generator.generate(&ast))
+}
 
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
@@ -45,21 +62,4 @@ fn main() -> Result<()> {
     }
 
     Ok(())
-}
-
-fn compile(source: &str, filename: &str) -> Result<String> {
-    let mut all_nodes = Vec::new();
-
-    // Start with the main file
-    let lexer = Lexer::new(&source, filename.to_string());
-    let mut parser = Parser::new(lexer)?;
-    let ast = parser.parse_program()?;
-
-    // Add this file's AST nodes to our collection
-    all_nodes.extend(ast);
-
-    // Generate code from all collected nodes
-    let mut generator = CodeGenerator::new();
-
-    Ok(generator.generate(&all_nodes))
 }

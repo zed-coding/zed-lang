@@ -7,8 +7,10 @@
   - [Basic Syntax](#basic-syntax)
   - [Functions](#functions)
   - [Function Predeclarations](#function-predeclarations)
+  - [Includes and Modules](#includes-and-modules)
   - [Control Flow](#control-flow)
   - [Type System](#type-system)
+  - [Standard Library](#standard-library)
 - [Build System](#build-system)
 - [VS Code Extension](#vs-code-extension)
 - [Example Programs](#example-programs)
@@ -17,7 +19,7 @@
 
 ## Introduction
 
-Zed is a simple programming language that compiles to x86_64 assembly. It features functions, control flow, strings, and basic arithmetic operations. With predeclarations support, it enables advanced programming patterns like mutual recursion and forward references.
+Zed is a simple programming language that compiles to x86_64 assembly. It features functions, control flow, strings, basic arithmetic operations, a module system with includes, and a standard library providing common functionality. With predeclarations support and proper symbol resolution, it enables advanced programming patterns like mutual recursion, forward references, and modular code organization.
 
 ## Installation
 
@@ -70,55 +72,9 @@ fn add(a, b) {
 }
 
 // Usage
+@include "./std/io.zed";
 result = add(5, 3);
 println(result);
-```
-
-#### Function Predeclarations
-```rust
-// Function predeclaration
-fn calculate_sum(a, b);
-
-// Can use the function before its definition
-result = calculate_sum(5, 3);
-
-// Function definition
-fn calculate_sum(a, b) {
-    return a + b;
-}
-```
-
-#### Recursive Functions with Predeclarations
-```rust
-fn factorial(n);  // Predeclare factorial
-
-fn factorial(n) {
-    if (n < 2) {
-        return 1;
-    }
-    return n * factorial(n - 1);
-}
-```
-
-#### Mutual Recursion
-```rust
-// Predeclare both functions
-fn is_even(n);
-fn is_odd(n);
-
-fn is_even(n) {
-    if (n == 0) {
-        return 1;
-    }
-    return is_odd(n - 1);
-}
-
-fn is_odd(n) {
-    if (n == 0) {
-        return 0;
-    }
-    return is_even(n - 1);
-}
 ```
 
 ### Function Predeclarations
@@ -135,6 +91,73 @@ Rules for predeclarations:
 - Functions can be called after predeclaration but before definition
 - Parameter names in predeclarations are optional
 - Predeclarations end with a semicolon (;)
+
+#### Example:
+```rust
+fn factorial(n);  // Predeclare factorial
+
+@include "./std/io.zed";
+println("Calculating factorial:");
+result = factorial(5);
+println(result);
+
+fn factorial(n) {
+    if (n < 2) {
+        return 1;
+    }
+    return n * factorial(n - 1);
+}
+```
+
+### Includes and Modules
+
+Zed supports a module system through includes, allowing code to be split across multiple files.
+
+#### Include Syntax
+```rust
+@include "module.zed";  // Include relative to current file
+@include "utils.zed" from "./lib";  // Include from specific directory
+```
+
+#### Symbol Resolution
+- Each file can define functions and variables
+- Functions defined in one file can be used in files that include it
+- Circular includes are detected and prevented
+- src/main.zed is treated specially as the entry point
+- Other files are treated as libraries
+
+#### Example Module Structure
+```
+project/
+├── src/
+│   ├── main.zed         # Entry point (gets _start symbol)
+│   ├── math.zed         # Math utilities
+│   └── string_utils.zed # String utilities
+└── lib/
+    └── core.zed         # Core functionality
+```
+
+#### Include Rules
+1. Files can only be included once (duplicates are ignored)
+2. Circular includes are detected and cause compilation error
+3. Each file maintains its own scope for variables
+4. Functions are available after include statement
+5. Function conflicts are detected at link time
+
+#### Example Module Usage
+```rust
+// math.zed
+fn add(a, b) {
+    return a + b;
+}
+
+// main.zed
+@include "./std/io.zed";
+@include "math.zed";
+
+result = add(5, 3);
+println(result);
+```
 
 ### Control Flow
 
@@ -160,22 +183,68 @@ Zed currently supports:
 - Strings
 - Functions
 
-## Build System
+### Standard Library
 
-The Zed build system provides project management and build automation.
+Zed includes a standard library providing essential functionality. The standard library is organized into modules:
 
-### Commands
-
-#### Creating a New Project
-```bash
-zed new project-name
+#### Standard Library Structure
+```
+std/
+├── io.zed    # Input/output functions (println, etc.)
+├── math.zed  # Mathematical operations
+└── fs.zed    # Filesystem operations
 ```
 
-Creates a new project with the following structure:
+#### Available Modules
+
+##### std/io.zed
+```rust
+// Include with: @include "./std/io.zed";
+fn println(format, ...);  // Print with newline
+fn puts(str);            // Print string with newline
+fn putchar(c);           // Print single character
+```
+
+##### std/math.zed
+```rust
+// Include with: @include "./std/math.zed";
+fn abs(x);       // Absolute value
+fn min(a, b);    // Minimum of two numbers
+fn max(a, b);    // Maximum of two numbers
+```
+
+##### std/fs.zed
+```rust
+// Include with: @include "./std/fs.zed";
+fn open(path, flags);   // Open file
+fn close(fd);          // Close file
+fn read(fd, buf, len); // Read from file
+```
+
+#### Using the Standard Library
+```rust
+// Include io.zed to use println
+@include "./std/io.zed";
+println("Hello %s\n", "World");
+
+// Include math.zed for math functions
+@include "./std/math.zed";
+x = abs(-42);
+println("Absolute value of %d is %d\n", x, abs_x);
+```
+
+## Build System
+
+### Project Structure
 ```
 project-name/
 ├── src/
-│   └── main.zed
+│   ├── main.zed    # Entry point (gets _start)
+│   └── lib.zed     # Library code
+├── std/           # Standard library
+│   ├── io.zed     # I/O functions
+│   ├── math.zed   # Math functions
+│   └── fs.zed     # Filesystem functions
 ├── examples/
 ├── target/
 │   ├── debug/
@@ -184,184 +253,84 @@ project-name/
 └── .gitignore
 ```
 
-#### Building
+### Build Process
+1. Compiles all .zed files in src/
+2. src/main.zed gets _start symbol and program entry point
+3. Other files are compiled as libraries
+4. Linker combines all object files
+5. Produces final executable
+
+### Commands
 ```bash
 zed build           # Debug build
 zed build --release # Release build
+zed run            # Build and run
+zed clean          # Remove build artifacts
 ```
-
-#### Running
-```bash
-zed run           # Build and run in debug mode
-zed run --release # Build and run in release mode
-```
-
-#### Cleaning
-```bash
-zed clean  # Remove build artifacts
-```
-
-### Project Configuration
-The `zed.json` file contains project settings:
-```json
-{
-    "name": "project-name",
-    "version": "0.1.0",
-    "target": "main"
-}
-```
-
-## VS Code Extension
-
-### Features
-- Syntax highlighting
-- Bracket matching
-- Auto-closing pairs
-- Comment toggling
-- Multi-line comment support
-
-### Installation
-1. Open VS Code
-2. Press Ctrl+Shift+P (Cmd+Shift+P on Mac)
-3. Type "Install from VSIX"
-4. Select the zed-language.vsix file
-
-### Language Configuration
-The extension provides syntax highlighting for:
-- Keywords (if, else, while, fn, return)
-- Built-in functions (println)
-- Strings with escape sequences
-- Numbers
-- Comments (both // and /* */)
-- Function names
-- Operators
-
-## Example Programs
-
-### Hello World
-```rust
-println("Hello, World!");
-```
-
-### Factorial with Predeclaration
-```rust
-fn factorial(n);  // Predeclare factorial
-
-// Can use factorial before its definition
-println("Calculating factorial of 5:");
-result = factorial(5);
-println(result);
-
-// Define factorial
-fn factorial(n) {
-    if (n < 2) {
-        return 1;
-    }
-    return n * factorial(n - 1);
-}
-```
-
-### Mutual Recursion Example
-```rust
-// Predeclare functions for mutual recursion
-fn is_even(n);
-fn is_odd(n);
-
-// Calculate if numbers 1-5 are even
-i = 1;
-while (i <= 5) {
-    if (is_even(i)) {
-        println("Even: ");
-    } else {
-        println("Odd: ");
-    }
-    println(i);
-    i = i + 1;
-}
-
-// Define the mutually recursive functions
-fn is_even(n) {
-    if (n == 0) return 1;
-    return is_odd(n - 1);
-}
-
-fn is_odd(n) {
-    if (n == 0) return 0;
-    return is_even(n - 1);
-}
-```
-
-## Language Execution Model
-
-### Program Structure
-- Zed programs execute statements sequentially from top to bottom
-- No explicit main() function is required
-- Function declarations and predeclarations can appear anywhere
-- Functions are registered (both declarations and predeclarations) during parsing
-- All top-level statements are executed in order
-- Functions are only executed when called
-
-### Entry Point
-Unlike languages like C or Java, Zed:
-- Starts executing from the first statement in the file
-- Registers function declarations and predeclarations
-- Executes top-level statements in order
-- Validates all predeclarations are defined
-- Reports errors for undefined or multiply defined functions
 
 ## Implementation Details
 
 ### Compiler Pipeline
 1. Lexical Analysis
    - Converts source code into tokens
-   - Handles comments and whitespace
-   - Recognizes function predeclaration syntax
+   - Handles includes and module resolution
+   - Processes comments and whitespace
 
 2. Parsing
    - Processes function predeclarations
+   - Handles includes recursively
    - Builds Abstract Syntax Tree (AST)
    - Tracks declared and defined functions
-   - Validates predeclarations and definitions match
-   - Ensures all predeclared functions are defined
+   - Validates predeclarations and definitions
 
 3. Code Generation
    - Generates x86_64 assembly
-   - Predeclarations don't generate code
-   - Only function definitions generate assembly
-   - Handles forward references in function calls
+   - Main file gets _start symbol
+   - Library files only generate function code
+   - Handles forward references
+   - Manages symbol visibility
 
 4. Assembly and Linking
-   - Uses GNU assembler (as)
-   - Uses GNU linker (ld)
+   - Assembles each file separately
+   - Links all object files
+   - Resolves function references
    - Produces executable binary
 
+### Symbol Resolution
+- Each source file is compiled to separate object file
+- src/main.zed gets _start symbol for program entry
+- Other files only generate function definitions
+- Functions are globally visible after definition
+- Symbol conflicts are detected at link time
+- Duplicate function definitions cause link error
+- All predeclared functions must be defined once
+
 ### Error Handling
-The compiler provides detailed error messages for:
 
-#### Predeclaration Errors
+#### Include Errors
 ```
-error: function 'calculate_sum' declared but not defined
+error: circular include detected: 'math.zed'
   --> main.zed:1:1
-1 | fn calculate_sum(a, b);
-  | ^^^^^^^^^^^^^^^^^^^^^
+1 | @include "math.zed";
+  | ^^^^^^^^^^^^^^^^^^
 
-error: function 'factorial' is already defined
-  --> main.zed:10:1
-10 | fn factorial(n) {
-   | ^^^^^^^^^^^^^
+error: couldn't read 'utils.zed': No such file
+  --> main.zed:2:1
+2 | @include "utils.zed";
+  | ^^^^^^^^^^^^^^^^^^
 ```
 
-#### General Syntax Errors
+#### Symbol Errors
 ```
-error: unexpected token in expression: '}'
-  --> main.zed:5:1
-5 | }
-  | ^
+error: multiple definition of 'add'
+  --> lib.zed:5:1
+5 | fn add(a, b) {
+  | ^^^^^^^^^^^
 
-error: undefined variable 'x'
-  --> main.zed:3:5
-3 | if (x > 0) {
-  |     ^
+error: undefined reference to 'calculate'
+  --> main.zed:3:1
+3 | result = calculate(5);
+  |          ^^^^^^^^
 ```
 
 ### Memory Model
@@ -370,3 +339,39 @@ error: undefined variable 'x'
 - Function parameters passed on stack
 - Local variables stored in stack frame
 - No global variables (yet)
+
+## Example Programs
+
+### Hello World
+```rust
+@include "./std/io.zed";
+println("Hello, World!");
+```
+
+### Factorial with Predeclaration
+```rust
+@include "./std/io.zed";
+
+fn factorial(n);  // Predeclare factorial
+
+println("Calculating factorial of 5:");
+result = factorial(5);
+println(result);
+
+fn factorial(n) {
+    if (n < 2) {
+        return 1;
+    }
+    return n * factorial(n - 1);
+}
+```
+
+### Using Multiple Stdlib Modules
+```rust
+@include "./std/io.zed";
+@include "./std/math.zed";
+
+x = -42;
+abs_x = abs(x);
+println("Absolute value of %d is %d", x, abs_x);
+```

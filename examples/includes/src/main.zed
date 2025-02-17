@@ -1,0 +1,5 @@
+@include "lib.zed";
+
+fn main() {
+    return add(1, 2);
+}

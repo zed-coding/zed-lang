@@ -12,8 +12,13 @@ pub enum AstNode {
     FunctionPredecl(String, Vec<String>),
     FunctionCall(String, Vec<AstNode>),
     Return(Option<Box<AstNode>>),
-    PrintLn(Box<AstNode>),
     StringLiteral(String),
+    InlineAsm {
+        template: String,
+        outputs: Vec<(String, String)>,  // (constraint, expression)
+        inputs: Vec<(String, String)>,   // (constraint, expression)
+        clobbers: Vec<String>,
+    },
 }
 
 #[derive(Debug)]

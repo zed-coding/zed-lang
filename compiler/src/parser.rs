@@ -1,16 +1,20 @@
 use crate::ast::{AstNode, BinaryOperator};
-use crate::lexer::{Lexer, Result, Token, TokenType};
+use crate::lexer::{ErrorKind, Lexer, Result, Token, TokenType};
 use std::collections::HashSet;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 pub struct Parser {
     lexer: Lexer,
     current_token: Token,
     declared_functions: HashSet<String>,
     defined_functions: HashSet<String>,
+    included_files: HashSet<PathBuf>,
+    current_dir: PathBuf,
 }
 
 impl Parser {
-    pub fn new(lexer: Lexer) -> Result<Self> {
+    pub fn new(lexer: Lexer, base_path: &Path) -> Result<Self> {
         let mut parser = Parser {
             lexer,
             current_token: Token {
@@ -20,9 +24,104 @@ impl Parser {
             },
             declared_functions: HashSet::new(),
             defined_functions: HashSet::new(),
+            included_files: HashSet::new(),
+            current_dir: base_path.parent().unwrap_or(Path::new(".")).to_path_buf(),
         };
         parser.current_token = parser.lexer.next_token()?;
         Ok(parser)
+    }
+
+    fn parse_include(&mut self) -> Result<Vec<AstNode>> {
+        self.eat(TokenType::Include)?;
+
+        // Get the string literal for the file path
+        let file_path = match &self.current_token.token_type {
+            TokenType::StringLiteral(path) => {
+                let path = path.clone();
+                self.eat(TokenType::StringLiteral(path.clone()))?;
+                path
+            }
+            _ => {
+                return Err(self.lexer.create_error(crate::lexer::ErrorKind::SyntaxError(
+                    "expected string literal after @include".to_string(),
+                )))
+            }
+        };
+
+        // Optional 'from' directive for specifying base path
+        let base_path = if let TokenType::From = self.current_token.token_type {
+            self.eat(TokenType::From)?;
+            match &self.current_token.token_type {
+                TokenType::StringLiteral(path) => {
+                    let path = path.clone();
+                    self.eat(TokenType::StringLiteral(path.clone()))?;
+                    PathBuf::from(path)
+                }
+                _ => {
+                    return Err(self.lexer.create_error(crate::lexer::ErrorKind::SyntaxError(
+                        "expected string literal after 'from'".to_string(),
+                    )))
+                }
+            }
+        } else {
+            self.current_dir.clone()
+        };
+
+        self.eat(TokenType::Semicolon)?;
+
+        // Resolve the full path
+        let full_path = base_path.join(&file_path);
+        let canonical_path = match full_path.canonicalize() {
+            Ok(path) => path,
+            Err(e) => {
+                return Err(self.lexer.create_error(crate::lexer::ErrorKind::IOError(
+                    format!("failed to resolve path '{}': {}", file_path, e)
+                )))
+            }
+        };
+
+        // Check for circular includes
+        if !self.included_files.insert(canonical_path.clone()) {
+            return Err(self.lexer.create_error(crate::lexer::ErrorKind::SyntaxError(
+                format!("circular include detected: {}", file_path)
+            )));
+        }
+
+        // Read and parse the included file
+        let source = match fs::read_to_string(&canonical_path) {
+            Ok(content) => content,
+            Err(e) => {
+                return Err(self.lexer.create_error(crate::lexer::ErrorKind::IOError(
+                    format!("couldn't read '{}': {}", file_path, e)
+                )))
+            }
+        };
+
+        // Create a new lexer and parser for the included file
+        let included_lexer = Lexer::new(&source, canonical_path.to_string_lossy().into_owned());
+        let mut included_parser = Parser {
+            lexer: included_lexer,
+            current_token: Token {
+                token_type: TokenType::EOF,
+                line: 0,
+                column: 0,
+            },
+            declared_functions: self.declared_functions.clone(),
+            defined_functions: self.defined_functions.clone(),
+            included_files: self.included_files.clone(),
+            current_dir: canonical_path.parent().unwrap_or(Path::new(".")).to_path_buf(),
+        };
+        included_parser.current_token = included_parser.lexer.next_token()?;
+
+        // Parse the included file
+        let nodes = included_parser.parse_program()?;
+
+        // Update function tracking sets
+        self.declared_functions = included_parser.declared_functions;
+        self.defined_functions = included_parser.defined_functions;
+        self.included_files = included_parser.included_files;
+
+        Ok(nodes)
     }
 
     fn eat(&mut self, expected_type: TokenType) -> Result<()> {
@@ -44,8 +143,17 @@ impl Parser {
     pub fn parse_program(&mut self) -> Result<Vec<AstNode>> {
         let mut statements = Vec::new();
         while self.current_token.token_type != TokenType::EOF {
-            let statement = self.parse_statement()?;
-            statements.push(statement);
+            match self.current_token.token_type {
+                TokenType::Include => {
+                    // Handle include directive
+                    let included_nodes = self.parse_include()?;
+                    statements.extend(included_nodes);
+                }
+                _ => {
+                    let statement = self.parse_statement()?;
+                    statements.push(statement);
+                }
+            }
         }
 
         // Verify all declared functions are defined
@@ -60,6 +168,138 @@ impl Parser {
         Ok(statements)
     }
 
+    fn parse_inline_asm(&mut self) -> Result<AstNode> {
+        self.eat(TokenType::Asm)?;
+
+        // Parse template string
+        let template = match &self.current_token.token_type {
+            TokenType::StringLiteral(s) => {
+                let s = s.clone();
+                self.eat(TokenType::StringLiteral(s.clone()))?;
+                s
+            }
+            _ => return Err(self.lexer.create_error(ErrorKind::SyntaxError(
+                "expected string literal for asm template".to_string(),
+            ))),
+        };
+
+        let mut outputs = Vec::new();
+        let mut inputs = Vec::new();
+        let mut clobbers = Vec::new();
+
+        // Parse constraints if present
+        if self.current_token.token_type == TokenType::Colon {
+            self.eat(TokenType::Colon)?;
+
+            // Parse output operands
+            while self.current_token.token_type != TokenType::Colon {
+                if !outputs.is_empty() {
+                    self.eat(TokenType::Comma)?;
+                }
+
+                // Parse constraint
+                let constraint = match &self.current_token.token_type {
+                    TokenType::StringLiteral(s) => {
+                        let s = s.clone();
+                        self.eat(TokenType::StringLiteral(s.clone()))?;
+                        s
+                    }
+                    _ => return Err(self.lexer.create_error(ErrorKind::SyntaxError(
+                        "expected string literal for constraint".to_string(),
+                    ))),
+                };
+
+                self.eat(TokenType::LeftBracket)?;
+
+                // Parse expression
+                let expr = match &self.current_token.token_type {
+                    TokenType::Identifier(name) => {
+                        let name = name.clone();
+                        self.eat(TokenType::Identifier(name.clone()))?;
+                        name
+                    }
+                    _ => return Err(self.lexer.create_error(ErrorKind::SyntaxError(
+                        "expected identifier for output operand".to_string(),
+                    ))),
+                };
+
+                self.eat(TokenType::RightBracket)?;
+                outputs.push((constraint, expr));
+            }
+
+            // Skip second colon (inputs)
+            self.eat(TokenType::Colon)?;
+
+            // Parse input operands
+            while self.current_token.token_type != TokenType::Colon {
+                if !inputs.is_empty() {
+                    self.eat(TokenType::Comma)?;
+                }
+
+                // Parse constraint
+                let constraint = match &self.current_token.token_type {
+                    TokenType::StringLiteral(s) => {
+                        let s = s.clone();
+                        self.eat(TokenType::StringLiteral(s.clone()))?;
+                        s
+                    }
+                    _ => return Err(self.lexer.create_error(ErrorKind::SyntaxError(
+                        "expected string literal for constraint".to_string(),
+                    ))),
+                };
+
+                self.eat(TokenType::LeftBracket)?;
+
+                // Parse expression
+                let expr = match &self.current_token.token_type {
+                    TokenType::Identifier(name) => {
+                        let name = name.clone();
+                        self.eat(TokenType::Identifier(name.clone()))?;
+                        name
+                    }
+                    _ => return Err(self.lexer.create_error(ErrorKind::SyntaxError(
+                        "expected identifier for input operand".to_string(),
+                    ))),
+                };
+
+                self.eat(TokenType::RightBracket)?;
+                inputs.push((constraint, expr));
+            }
+
+            // Skip third colon (clobbers)
+            self.eat(TokenType::Colon)?;
+
+            // Parse clobbers
+            while self.current_token.token_type != TokenType::Semicolon {
+                if !clobbers.is_empty() {
+                    self.eat(TokenType::Comma)?;
+                }
+
+                let clobber = match &self.current_token.token_type {
+                    TokenType::StringLiteral(s) => {
+                        let s = s.clone();
+                        self.eat(TokenType::StringLiteral(s.clone()))?;
+                        s
+                    }
+                    _ => return Err(self.lexer.create_error(ErrorKind::SyntaxError(
+                        "expected string literal for clobber".to_string(),
+                    ))),
+                };
+
+                clobbers.push(clobber);
+            }
+        }
+
+        self.eat(TokenType::Semicolon)?;
+
+        Ok(AstNode::InlineAsm {
+            template,
+            outputs,
+            inputs,
+            clobbers,
+        })
+    }
+
     fn parse_statement(&mut self) -> Result<AstNode> {
         match &self.current_token.token_type {
             TokenType::Function => self.parse_function_declaration(),
@@ -67,6 +307,7 @@ impl Parser {
             TokenType::If => self.parse_if_statement(),
             TokenType::While => self.parse_while_statement(),
             TokenType::LBrace => self.parse_block(),
+            TokenType::Asm => self.parse_inline_asm(),
             _ => {
                 let expr = self.parse_expression()?;
                 self.eat(TokenType::Semicolon)?;
@@ -335,13 +576,6 @@ impl Parser {
                 } else {
                     Ok(AstNode::Variable(name))
                 }
-            }
-            TokenType::PrintLn => {
-                self.eat(TokenType::PrintLn)?;
-                self.eat(TokenType::LParen)?;
-                let expr = self.parse_expression()?;
-                self.eat(TokenType::RParen)?;
-                Ok(AstNode::PrintLn(Box::new(expr)))
             }
             TokenType::LParen => {
                 self.eat(TokenType::LParen)?;

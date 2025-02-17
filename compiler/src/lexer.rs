@@ -110,12 +110,15 @@ pub enum TokenType {
     Function,
     Return,
     Comma,
-    PrintLn,
     StringLiteral(String),
     LessEqual,
     GreaterEqual,
     Include,
     From,
+    Asm,
+    Colon,
+    LeftBracket,
+    RightBracket,
     EOF,
 }
 
@@ -145,10 +148,13 @@ impl fmt::Display for TokenType {
             TokenType::Function => write!(f, "fn"),
             TokenType::Return => write!(f, "return"),
             TokenType::Comma => write!(f, ","),
-            TokenType::PrintLn => write!(f, "println"),
             TokenType::StringLiteral(s) => write!(f, "string \"{}\"", s),
             TokenType::Include => write!(f, "@include"),
             TokenType::From => write!(f, "from"),
+            TokenType::Asm => write!(f, "asm"),
+            TokenType::Colon => write!(f, ":"),
+            TokenType::LeftBracket => write!(f, "["),
+            TokenType::RightBracket => write!(f, "]"),
             TokenType::EOF => write!(f, "end of file"),
         }
     }
@@ -564,8 +570,8 @@ impl Lexer {
             "while" => TokenType::While,
             "fn" => TokenType::Function,
             "return" => TokenType::Return,
-            "println" => TokenType::PrintLn,
             "from" => TokenType::From,
+            "asm" => TokenType::Asm,
             _ => TokenType::Identifier(identifier),
         };
 

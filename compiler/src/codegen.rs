@@ -8,16 +8,18 @@ pub struct CodeGenerator {
     var_map: HashMap<String, i32>,
     current_stack_offset: i32,
     string_literals: Vec<String>,
+    is_main_file: bool,
 }
 
 impl CodeGenerator {
-    pub fn new() -> Self {
+    pub fn new(is_main_file: bool) -> Self {
         CodeGenerator {
             assembly: String::new(),
             label_count: 0,
             var_map: HashMap::new(),
             current_stack_offset: 0,
             string_literals: Vec::new(),
+            is_main_file,
         }
     }
 
@@ -54,9 +56,6 @@ impl CodeGenerator {
             AstNode::StringLiteral(s) => {
                 self.add_string_literal(s);
             }
-            AstNode::PrintLn(expr) => {
-                self.collect_string_literals(expr);
-            }
             AstNode::Block(statements) => {
                 for stmt in statements {
                     self.collect_string_literals(stmt);
@@ -75,9 +74,6 @@ impl CodeGenerator {
             }
             AstNode::FunctionDecl(_, _, body) => {
                 self.collect_string_literals(body);
-            }
-            AstNode::FunctionPredecl(_, _) => {
-                // Nothing to collect for predeclarations
             }
             AstNode::BinaryOp(left, _, right) => {
                 self.collect_string_literals(left);
@@ -118,40 +114,6 @@ impl CodeGenerator {
                 let offset = self.get_var_location(name);
                 self.emit("    popq %rax");
                 self.emit(&format!("    movq %rax, {}(%rbp)", offset));
-            }
-            AstNode::PrintLn(expr) => {
-                self.generate_node(expr);
-                self.emit("    popq %rsi"); // Get value/pointer to print
-
-                match &**expr {
-                    AstNode::StringLiteral(_) => {
-                        // String printing
-                        self.emit("    movq %rsi, %rdi"); // Setup for strlen
-                        self.emit("    call strlen");
-                        self.emit("    movq %rax, %rdx"); // Length for write
-                        self.emit("    movq %rsi, %rsi"); // String ptr
-                        self.emit("    movq $1, %rdi"); // stdout
-                        self.emit("    movq $1, %rax"); // sys_write
-                        self.emit("    syscall");
-                    }
-                    _ => {
-                        // Number printing
-                        self.emit("    movq %rsi, %rdi"); // Number to print
-                        self.emit("    subq $32, %rsp"); // Buffer space
-                        self.emit("    movq %rsp, %rsi"); // Buffer ptr
-                        self.emit("    movq $32, %rdx"); // Buffer size
-                        self.emit("    movq $10, %rcx"); // Base 10
-                        self.emit("    call itoa");
-
-                        self.emit("    movq %rax, %rdx"); // Length
-                        self.emit("    movq %rsp, %rsi"); // String ptr
-                        self.emit("    movq $1, %rdi"); // stdout
-                        self.emit("    movq $1, %rax"); // sys_write
-                        self.emit("    syscall");
-
-                        self.emit("    addq $32, %rsp"); // Restore stack
-                    }
-                }
             }
             AstNode::BinaryOp(left, op, right) => {
                 self.generate_node(left);
@@ -318,115 +280,93 @@ impl CodeGenerator {
                 self.emit("    popq %rbp");
                 self.emit("    ret");
             }
+            AstNode::InlineAsm { template, outputs, inputs, clobbers } => {
+                // Generate assembly prologue
+                self.emit("    # Begin inline assembly");
+
+                // Save any clobbered registers
+                for clobber in clobbers {
+                    if clobber != "memory" && clobber != "cc" {
+                        self.emit(&format!("    pushq %{}", clobber));
+                    }
+                }
+
+                // Move input operands to their registers
+                for (i, (constraint, expr)) in inputs.iter().enumerate() {
+                    let reg = match constraint.as_str() {
+                        "r" => ["rax", "rbx", "rcx", "rdx"][i],
+                        _ => "rax", // Default to rax for unknown constraints
+                    };
+
+                    // Load the variable
+                    if let Some(offset) = self.var_map.get(expr) {
+                        self.emit(&format!("    movq {}(%rbp), %{}", offset, reg));
+                    }
+                }
+
+                // Emit the actual assembly template
+                for line in template.lines() {
+                    self.emit(&format!("    {}", line.trim()));
+                }
+
+                // Store output operands
+                for (i, (constraint, expr)) in outputs.iter().enumerate() {
+                    let reg = match constraint.as_str() {
+                        "=r" => ["rax", "rbx", "rcx", "rdx"][i],
+                        _ => "rax", // Default to rax for unknown constraints
+                    };
+
+                    // Store the result
+                    if let Some(offset) = self.var_map.get(expr) {
+                        self.emit(&format!("    movq %{}, {}(%rbp)", reg, offset));
+                    }
+                }
+
+                // Restore clobbered registers in reverse order
+                for clobber in clobbers.iter().rev() {
+                    if clobber != "memory" && clobber != "cc" {
+                        self.emit(&format!("    popq %{}", clobber));
+                    }
+                }
+
+                self.emit("    # End inline assembly");
+            }
         }
     }
 
     pub fn generate(&mut self, ast: &[AstNode]) -> String {
         self.assembly.clear();
-        self.string_literals.clear(); // Clear any previous strings
+        self.string_literals.clear();
 
         // First collect all string literals from the AST
         for node in ast {
             self.collect_string_literals(node);
         }
 
-        // Data section
-        self.emit(".section .data");
-        self.emit("newline:");
-        self.emit("    .string \"\\n\"");
+        // Data section (only if we have string literals)
+        if !self.string_literals.is_empty() {
+            self.emit(".section .data");
 
-        self.emit("");
-        self.emit("# String literals");
+            // Pre-format string declarations
+            let string_declarations: Vec<String> = self
+                .string_literals
+                .iter()
+                .enumerate()
+                .flat_map(|(i, s)| vec![
+                    format!("str{}:", i),
+                    format!("    .string \"{}\"", s)
+                ])
+                .collect();
 
-        // Pre-format string declarations
-        let string_declarations: Vec<String> = self
-            .string_literals
-            .iter()
-            .enumerate()
-            .flat_map(|(i, s)| vec![format!("str{}:", i), format!("    .string \"{}\"", s)])
-            .collect();
-
-        // Emit string declarations
-        for decl in string_declarations {
-            self.emit(&decl);
+            // Emit string declarations
+            for decl in string_declarations {
+                self.emit(&decl);
+            }
         }
 
         // Text section
         self.emit("");
         self.emit(".section .text");
-
-        // Helper function for string length
-        self.emit("");
-        self.emit("strlen:");
-        self.emit("    pushq %rbp");
-        self.emit("    movq %rsp, %rbp");
-        self.emit("    movq $-1, %rax");
-        self.emit(".Lstrlen_loop:");
-        self.emit("    incq %rax");
-        self.emit("    movb (%rdi,%rax), %cl");
-        self.emit("    testb %cl, %cl");
-        self.emit("    jnz .Lstrlen_loop");
-        self.emit("    popq %rbp");
-        self.emit("    ret");
-
-        // itoa function (for number printing)
-        self.emit("");
-        self.emit("itoa:");
-        self.emit("    pushq %rbp");
-        self.emit("    movq %rsp, %rbp");
-        self.emit("    pushq %rbx");
-        self.emit("    pushq %r12");
-        self.emit("    pushq %r13");
-
-        self.emit("    movq %rdi, %rax"); // Number to convert
-        self.emit("    movq %rsi, %r12"); // Buffer
-        self.emit("    movq $0, %r13"); // Length
-
-        // Handle negative numbers
-        self.emit("    cmpq $0, %rax");
-        self.emit("    jge .Lpositive");
-        self.emit("    negq %rax");
-        self.emit("    movb $45, (%r12)"); // Store '-'
-        self.emit("    incq %r12");
-        self.emit("    incq %r13");
-
-        self.emit(".Lpositive:");
-        self.emit("    movq %rax, %rbx"); // Save number
-        self.emit("    movq $0, %r8"); // Digit count
-
-        // Count digits
-        self.emit(".Lcount:");
-        self.emit("    movq $0, %rdx");
-        self.emit("    movq $10, %rcx");
-        self.emit("    divq %rcx");
-        self.emit("    incq %r8");
-        self.emit("    cmpq $0, %rax");
-        self.emit("    jne .Lcount");
-
-        self.emit("    addq %r8, %r13"); // Add to length
-        self.emit("    addq %r8, %r12"); // Point to end
-        self.emit("    decq %r12"); // Back up one
-        self.emit("    movq %rbx, %rax"); // Restore number
-
-        // Convert digits
-        self.emit(".Lconvert:");
-        self.emit("    movq $0, %rdx");
-        self.emit("    movq $10, %rcx");
-        self.emit("    divq %rcx");
-        self.emit("    addb $48, %dl"); // To ASCII
-        self.emit("    movb %dl, (%r12)"); // Store digit
-        self.emit("    decq %r12"); // Move back
-        self.emit("    cmpq $0, %rax");
-        self.emit("    jne .Lconvert");
-
-        // Return length in rax
-        self.emit("    movq %r13, %rax");
-
-        self.emit("    popq %r13");
-        self.emit("    popq %r12");
-        self.emit("    popq %rbx");
-        self.emit("    popq %rbp");
-        self.emit("    ret");
 
         // Generate all functions first
         for node in ast {
@@ -435,30 +375,62 @@ impl CodeGenerator {
             }
         }
 
-        // Main program
-        self.emit("");
-        self.emit(".global _start");
-        self.emit("");
-        self.emit("_start:");
-        self.emit("    pushq %rbp");
-        self.emit("    movq %rsp, %rbp");
-        self.emit("    subq $256, %rsp"); // Stack frame
+        // For main file, generate _start
+        if self.is_main_file {
+            // Main program
+            self.emit("");
+            self.emit(".global _start");
+            self.emit("");
+            self.emit("_start:");
+            self.emit("    pushq %rbp");
+            self.emit("    movq %rsp, %rbp");
+            self.emit("    subq $256, %rsp");
 
-        // Generate non-function code
-        for node in ast {
-            if let AstNode::FunctionDecl(_, _, _) = node {
-                continue;
+            // Generate non-function code
+            for node in ast {
+                if let AstNode::FunctionDecl(_, _, _) = node {
+                    continue;
+                }
+                self.generate_node(node);
             }
-            self.generate_node(node);
-        }
 
-        // Exit
-        self.emit("");
-        self.emit("    movq %rbp, %rsp");
-        self.emit("    popq %rbp");
-        self.emit("    movq $60, %rax"); // exit syscall
-        self.emit("    xorq %rdi, %rdi"); // status 0
-        self.emit("    syscall");
+            // Exit
+            self.emit("");
+            self.emit("    movq %rbp, %rsp");
+            self.emit("    popq %rbp");
+            self.emit("    movq $60, %rax");
+            self.emit("    xorq %rdi, %rdi");
+            self.emit("    syscall");
+        } else {
+            // For included files, only generate non-function code if it exists
+            let has_non_function_code = ast.iter().any(|node| {
+                !matches!(node, AstNode::FunctionDecl(_, _, _))
+            });
+
+            if has_non_function_code {
+                // Create an initialization function for this file
+                let init_label = format!("__init_{}", self.label_count);
+                self.label_count += 1;
+
+                self.emit("");
+                self.emit(&format!("{}:", init_label));
+                self.emit("    pushq %rbp");
+                self.emit("    movq %rsp, %rbp");
+                self.emit("    subq $256, %rsp");
+
+                // Generate non-function code
+                for node in ast {
+                    if let AstNode::FunctionDecl(_, _, _) = node {
+                        continue;
+                    }
+                    self.generate_node(node);
+                }
+
+                self.emit("    movq %rbp, %rsp");
+                self.emit("    popq %rbp");
+                self.emit("    ret");
+            }
+        }
 
         self.assembly.clone()
     }

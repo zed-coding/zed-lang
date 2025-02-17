@@ -6,13 +6,10 @@
           "include": "#comments"
       },
       {
+          "include": "#includes"
+      },
+      {
           "include": "#keywords"
-      },
-      {
-          "include": "#types"
-      },
-      {
-          "include": "#constants"
       },
       {
           "include": "#strings"
@@ -28,6 +25,9 @@
       },
       {
           "include": "#punctuation"
+      },
+      {
+          "include": "#inline_asm"
       }
   ],
   "repository": {
@@ -40,10 +40,19 @@
               {
                   "name": "comment.block.zed",
                   "begin": "/\\*",
-                  "end": "\\*/",
-                  "captures": {
-                      "0": { "name": "punctuation.definition.comment.zed" }
-                  }
+                  "end": "\\*/"
+              }
+          ]
+      },
+      "includes": {
+          "patterns": [
+              {
+                  "name": "keyword.control.import.zed",
+                  "match": "@include"
+              },
+              {
+                  "name": "keyword.control.import.from.zed",
+                  "match": "\\bfrom\\b"
               }
           ]
       },
@@ -51,27 +60,7 @@
           "patterns": [
               {
                   "name": "keyword.control.zed",
-                  "match": "\\b(if|else|while|return|fn|for|break|continue)\\b"
-              },
-              {
-                  "name": "support.function.builtin.zed",
-                  "match": "\\b(println|input|len)\\b"
-              }
-          ]
-      },
-      "types": {
-          "patterns": [
-              {
-                  "name": "storage.type.zed",
-                  "match": "\\b(int|float|string|bool|char|void)\\b"
-              }
-          ]
-      },
-      "constants": {
-          "patterns": [
-              {
-                  "name": "constant.language.zed",
-                  "match": "\\b(true|false|null)\\b"
+                  "match": "\\b(if|else|while|return|fn|asm)\\b"
               }
           ]
       },
@@ -82,19 +71,26 @@
           "patterns": [
               {
                   "name": "constant.character.escape.zed",
-                  "match": "\\\\."
+                  "match": "\\\\[\\\\\"nrt]"
               }
           ]
       },
       "numbers": {
           "name": "constant.numeric.zed",
-          "match": "\\b[0-9]+\\b"
+          "match": "\\b-?[0-9]+\\b"
       },
       "functions": {
           "patterns": [
               {
-                  "name": "entity.name.function.zed",
-                  "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\("
+                  "name": "entity.name.function.declaration.zed",
+                  "match": "(?<=fn\\s+)[a-zA-Z_][a-zA-Z0-9_]*"
+              },
+              {
+                  "name": "entity.name.function.call.zed",
+                  "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",
+                  "captures": {
+                      "1": { "name": "entity.name.function.call.zed" }
+                  }
               }
           ]
       },
@@ -110,11 +106,7 @@
               },
               {
                   "name": "keyword.operator.comparison.zed",
-                  "match": "(==|!=|<=|>=|<|>)"
-              },
-              {
-                  "name": "keyword.operator.logical.zed",
-                  "match": "(&&|\\|\\|)"
+                  "match": "(==|<=|>=|<|>)"
               }
           ]
       },
@@ -122,7 +114,41 @@
           "patterns": [
               {
                   "name": "punctuation.separator.zed",
-                  "match": "[{}();,]"
+                  "match": "[{}();,:\\[\\]]"
+              }
+          ]
+      },
+      "inline_asm": {
+          "patterns": [
+              {
+                  "name": "meta.inline.asm.zed",
+                  "begin": "\\b(asm)\\s*\"",
+                  "end": "\"",
+                  "beginCaptures": {
+                      "1": { "name": "keyword.control.zed" }
+                  },
+                  "patterns": [
+                      {
+                          "name": "constant.character.escape.asm.zed",
+                          "match": "\\\\[\\\\\"nrt]"
+                      },
+                      {
+                          "name": "variable.other.register.asm.zed",
+                          "match": "%[a-z0-9]+"
+                      },
+                      {
+                          "name": "constant.numeric.asm.zed",
+                          "match": "\\$[0-9]+"
+                      },
+                      {
+                          "name": "support.function.asm.zed",
+                          "match": "\\b(mov|add|sub|mul|div|push|pop|call|ret|syscall|xor|inc|dec|cmp|j[a-z]+)q?\\b"
+                      }
+                  ]
+              },
+              {
+                  "name": "string.quoted.double.asm.constraint.zed",
+                  "match": "\"[=]?[a-z]+\""
               }
           ]
       }

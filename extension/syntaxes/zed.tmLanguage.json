@@ -1,0 +1,131 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Zed",
+  "patterns": [
+      {
+          "include": "#comments"
+      },
+      {
+          "include": "#keywords"
+      },
+      {
+          "include": "#types"
+      },
+      {
+          "include": "#constants"
+      },
+      {
+          "include": "#strings"
+      },
+      {
+          "include": "#numbers"
+      },
+      {
+          "include": "#functions"
+      },
+      {
+          "include": "#operators"
+      },
+      {
+          "include": "#punctuation"
+      }
+  ],
+  "repository": {
+      "comments": {
+          "patterns": [
+              {
+                  "name": "comment.line.double-slash.zed",
+                  "match": "//.*$"
+              },
+              {
+                  "name": "comment.block.zed",
+                  "begin": "/\\*",
+                  "end": "\\*/",
+                  "captures": {
+                      "0": { "name": "punctuation.definition.comment.zed" }
+                  }
+              }
+          ]
+      },
+      "keywords": {
+          "patterns": [
+              {
+                  "name": "keyword.control.zed",
+                  "match": "\\b(if|else|while|return|fn|for|break|continue)\\b"
+              },
+              {
+                  "name": "support.function.builtin.zed",
+                  "match": "\\b(println|input|len)\\b"
+              }
+          ]
+      },
+      "types": {
+          "patterns": [
+              {
+                  "name": "storage.type.zed",
+                  "match": "\\b(int|float|string|bool|char|void)\\b"
+              }
+          ]
+      },
+      "constants": {
+          "patterns": [
+              {
+                  "name": "constant.language.zed",
+                  "match": "\\b(true|false|null)\\b"
+              }
+          ]
+      },
+      "strings": {
+          "name": "string.quoted.double.zed",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+              {
+                  "name": "constant.character.escape.zed",
+                  "match": "\\\\."
+              }
+          ]
+      },
+      "numbers": {
+          "name": "constant.numeric.zed",
+          "match": "\\b[0-9]+\\b"
+      },
+      "functions": {
+          "patterns": [
+              {
+                  "name": "entity.name.function.zed",
+                  "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\("
+              }
+          ]
+      },
+      "operators": {
+          "patterns": [
+              {
+                  "name": "keyword.operator.assignment.zed",
+                  "match": "="
+              },
+              {
+                  "name": "keyword.operator.arithmetic.zed",
+                  "match": "[+\\-*/%]"
+              },
+              {
+                  "name": "keyword.operator.comparison.zed",
+                  "match": "(==|!=|<=|>=|<|>)"
+              },
+              {
+                  "name": "keyword.operator.logical.zed",
+                  "match": "(&&|\\|\\|)"
+              }
+          ]
+      },
+      "punctuation": {
+          "patterns": [
+              {
+                  "name": "punctuation.separator.zed",
+                  "match": "[{}();,]"
+              }
+          ]
+      }
+  },
+  "scopeName": "source.zed"
+}

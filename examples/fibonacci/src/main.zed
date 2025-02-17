@@ -1,0 +1,100 @@
+/* Fibonacci sequence with memoization
+ This example demonstrates:
+ - Complex recursion
+ - Function calls
+ - If/while control flow
+ - String manipulation
+ - Number operations
+ - Variable scoping */
+
+// Helper function to calculate power
+fn power(base, exp) {
+    if (exp < 1) {
+        return 1;
+    }
+    result = base;
+    while (exp > 1) {
+        result = result * base;
+        exp = exp - 1;
+    }
+    return result;
+}
+
+// Function to calculate fibonacci with a loop
+fn fib_loop(n) {
+    if (n < 2) {
+        return n;
+    }
+    a = 0;
+    b = 1;
+    i = 2;
+    while (i <= n) {
+        temp = b;
+        b = a + b;
+        a = temp;
+        i = i + 1;
+    }
+    return b;
+}
+
+// Function to check if a number is prime
+fn is_prime(n) {
+    if (n < 2) {
+        return 0;
+    }
+    if (n == 2) {
+        return 1;
+    }
+    i = 2;
+    while (i * i <= n) {
+        if ((n / i) * i == n) {  // Check divisibility (no modulo yet!)
+            return 0;
+        }
+        i = i + 1;
+    }
+    return 1;
+}
+
+/* Main program starts here */
+println("=== Complex Zed Example ===\n");
+
+// Test power function
+println("Testing power function...\n");
+p = power(2, 8);
+println("2^8 = ");
+println(p);
+println("\n");
+
+// Calculate and print first 10 Fibonacci numbers
+println("First 10 Fibonacci numbers:\n");
+i = 0;
+while (i < 10) {
+    result = fib_loop(i);
+    println(result);
+    println("\n");
+    i = i + 1;
+}
+
+// Find first 5 prime Fibonacci numbers
+println("First 5 prime Fibonacci numbers:\n");
+count = 0;
+i = 2;
+while (count < 5) {
+    fib = fib_loop(i);
+    if (is_prime(fib)) {
+        println(fib);
+        println("\n");
+        count = count + 1;
+    }
+    i = i + 1;
+}
+
+// Calculate a complex mathematical expression
+println("Complex calculation:\n");
+x = 10;
+y = 5;
+z = power(x + y, 2) + power(x - y, 2);
+println(z);
+println("\n");
+
+println("=== Program Complete ===");

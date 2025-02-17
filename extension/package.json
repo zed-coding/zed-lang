@@ -1,0 +1,27 @@
+{
+  "name": "zed-language",
+  "displayName": "Zed Language",
+  "description": "Syntax highlighting for Zed programming language",
+  "version": "0.0.1",
+  "engines": {
+      "vscode": "^1.60.0"
+  },
+  "categories": [
+      "Programming Languages"
+  ],
+  "contributes": {
+      "languages": [{
+          "id": "zed",
+          "aliases": ["Zed", "zed"],
+          "extensions": [".zed"],
+          "configuration": "./language-configuration.json"
+      }],
+      "grammars": [{
+          "language": "zed",
+          "scopeName": "source.zed",
+          "path": "./syntaxes/zed.tmLanguage.json"
+      }]
+  },
+  "repository": {"url": "https://github.com/zed-coding/zed-lang"},
+  "license": "Apache-2.0"
+}

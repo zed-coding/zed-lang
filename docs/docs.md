@@ -8,6 +8,7 @@
   - [Functions](#functions)
   - [Function Predeclarations](#function-predeclarations)
   - [Includes and Modules](#includes-and-modules)
+  - [Inline Assembly](#inline-assembly)
   - [Control Flow](#control-flow)
   - [Type System](#type-system)
   - [Standard Library](#standard-library)
@@ -19,7 +20,7 @@
 
 ## Introduction
 
-Zed is a simple programming language that compiles to x86_64 assembly. It features functions, control flow, strings, basic arithmetic operations, a module system with includes, and a standard library providing common functionality. With predeclarations support and proper symbol resolution, it enables advanced programming patterns like mutual recursion, forward references, and modular code organization.
+Zed is a simple programming language that compiles to x86_64 assembly. It features functions, control flow, strings, basic arithmetic operations, inline assembly, a module system with includes, and a standard library providing common functionality. With predeclarations support and proper symbol resolution, it enables advanced programming patterns like mutual recursion, forward references, and modular code organization.
 
 ## Installation
 
@@ -126,17 +127,6 @@ Zed supports a module system through includes, allowing code to be split across 
 - src/main.zed is treated specially as the entry point
 - Other files are treated as libraries
 
-#### Example Module Structure
-```
-project/
-├── src/
-│   ├── main.zed         # Entry point (gets _start symbol)
-│   ├── math.zed         # Math utilities
-│   └── string_utils.zed # String utilities
-└── lib/
-    └── core.zed         # Core functionality
-```
-
 #### Include Rules
 1. Files can only be included once (duplicates are ignored)
 2. Circular includes are detected and cause compilation error
@@ -144,19 +134,69 @@ project/
 4. Functions are available after include statement
 5. Function conflicts are detected at link time
 
-#### Example Module Usage
+### Inline Assembly
+
+Zed supports inline assembly blocks using a syntax similar to GCC's extended asm, allowing direct x86_64 assembly within Zed code.
+
+#### Basic Syntax
 ```rust
-// math.zed
-fn add(a, b) {
-    return a + b;
+// Simple asm block
+asm "movq $60, %rax
+     movq $0, %rdi
+     syscall";
+```
+
+#### Assembly with Operands
+```rust
+// Input/output operands and clobbers
+x = 5;
+y = 3;
+asm "movq %rbx, %rax
+     addq %rcx, %rax"
+     : "=r"[result]        // output
+     : "r"[x], "r"[y]      // inputs
+     : "rax", "rbx", "rcx"; // clobbers
+```
+
+#### Operand Constraints
+- Output operands: "=r"[variable]
+  - Writes result to variable
+  - Register is allocated for output
+- Input operands: "r"[variable]
+  - Reads from variable
+  - Register is allocated for input
+- Clobbers: List of modified registers
+  - Registers are saved/restored automatically
+  - Special clobbers: "memory", "cc"
+
+#### Examples
+
+System Call Implementation:
+```rust
+fn exit(code) {
+    asm "movq $60, %rax  # exit syscall
+         movq %rdi, %rdi # status code
+         syscall"
+         : // no outputs
+         : "r"[code]    // input in rdi
+         : "rax";       // clobbers
 }
+```
 
-// main.zed
-@include "./std/io.zed";
-@include "math.zed";
-
-result = add(5, 3);
-println(result);
+String Length Calculation:
+```rust
+fn strlen(str) {
+    asm "xor %rax, %rax   # clear counter
+         dec %rax         # start at -1
+    .loop:
+         inc %rax         # increment counter
+         cmpb $0, (%rdi, %rax)  # check for null
+         jnz .loop"       # continue if not null
+         : "=r"[len]      # length result
+         : "r"[str]       # input string
+         : "rax", "cc";   # clobbers
+    return len;
+}
 ```
 
 ### Control Flow
@@ -282,6 +322,7 @@ zed clean          # Remove build artifacts
    - Builds Abstract Syntax Tree (AST)
    - Tracks declared and defined functions
    - Validates predeclarations and definitions
+   - Parses inline assembly blocks
 
 3. Code Generation
    - Generates x86_64 assembly
@@ -289,6 +330,7 @@ zed clean          # Remove build artifacts
    - Library files only generate function code
    - Handles forward references
    - Manages symbol visibility
+   - Processes inline assembly directives
 
 4. Assembly and Linking
    - Assembles each file separately
@@ -366,12 +408,44 @@ fn factorial(n) {
 }
 ```
 
-### Using Multiple Stdlib Modules
+### Low-Level System Call
+```rust
+// Exit program with status code
+fn exit(code) {
+    asm "movq $60, %rax
+         movq %rdi, %rdi
+         syscall"
+         :
+         : "r"[code]
+         : "rax";
+}
+
+exit(0);  // Exit with status 0
+```
+
+### Using Multiple Features
 ```rust
 @include "./std/io.zed";
 @include "./std/math.zed";
 
+// Calculate length and absolute value
+str = "Hello, World!";
 x = -42;
+
+// Get string length using assembly
+asm "xor %rax, %rax
+     dec %rax
+.loop:
+     inc %rax
+     cmpb $0, (%rdi, %rax)
+     jnz .loop"
+     : "=r"[len]
+     : "r"[str]
+     : "rax", "cc";
+
+// Get absolute value using stdlib
 abs_x = abs(x);
-println("Absolute value of %d is %d", x, abs_x);
+
+println("String length: %d", len);
+println("Absolute value: %d", abs_x);
 ```

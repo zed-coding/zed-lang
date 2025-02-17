@@ -1,3 +1,5 @@
+@include "std/io.zed";
+
 fn hello_world();
 
 hello_world();

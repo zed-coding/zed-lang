@@ -1,1 +1,3 @@
+@include "std/io.zed";
+
 println("Hello, World!");

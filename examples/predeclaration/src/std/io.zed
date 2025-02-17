@@ -1,0 +1,41 @@
+// I/O Operations
+
+fn puts(str) {
+    asm "movq $1, %rax   # sys_write
+         movq $1, %rdi   # stdout
+         movq %rsi, %rsi # string ptr
+         movq $0, %rdx   # length
+
+         # Calculate string length
+         pushq %rsi
+         xor %rdx, %rdx
+         dec %rdx
+     .strlen:
+         inc %rdx
+         cmpb $0, (%rsi, %rdx)
+         jnz .strlen
+
+         popq %rsi
+         syscall"
+         :
+         : "r"[str]
+         : "rax", "rdi", "rsi", "rdx";
+}
+
+fn putchar(c) {
+    asm "movq $1, %rax   # sys_write
+         movq $1, %rdi   # stdout
+         pushq %rsi      # char to stack
+         movq %rsp, %rsi # point to char
+         movq $1, %rdx   # length = 1
+         syscall
+         popq %rsi"      # restore stack
+         :
+         : "r"[c]
+         : "rax", "rdi", "rsi", "rdx";
+}
+
+fn println(str) {
+    puts(str);
+    putchar(10); // newline
+}

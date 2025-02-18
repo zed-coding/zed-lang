@@ -171,6 +171,9 @@ impl Parser {
     fn parse_inline_asm(&mut self) -> Result<AstNode> {
         self.eat(TokenType::Asm)?;
 
+        // Skip any whitespace after 'asm'
+        self.lexer.skip_whitespace_and_comments();
+
         // Parse template string
         let template = match &self.current_token.token_type {
             TokenType::StringLiteral(s) => {
@@ -187,12 +190,17 @@ impl Parser {
         let mut inputs = Vec::new();
         let mut clobbers = Vec::new();
 
+        // Skip whitespace before checking for colon
+        self.lexer.skip_whitespace_and_comments();
+
         // Parse constraints if present
         if self.current_token.token_type == TokenType::Colon {
             self.eat(TokenType::Colon)?;
 
-            // Parse output operands
-            while self.current_token.token_type != TokenType::Colon {
+            // Parse output operands until next colon or semicolon
+            while self.current_token.token_type != TokenType::Colon
+                && self.current_token.token_type != TokenType::Semicolon {
+
                 if !outputs.is_empty() {
                     self.eat(TokenType::Comma)?;
                 }
@@ -225,68 +233,79 @@ impl Parser {
 
                 self.eat(TokenType::RightBracket)?;
                 outputs.push((constraint, expr));
+
+                // Skip whitespace before next token
+                self.lexer.skip_whitespace_and_comments();
             }
 
-            // Skip second colon (inputs)
-            self.eat(TokenType::Colon)?;
+            // Parse inputs if there's a second colon
+            if self.current_token.token_type == TokenType::Colon {
+                self.eat(TokenType::Colon)?;
 
-            // Parse input operands
-            while self.current_token.token_type != TokenType::Colon {
-                if !inputs.is_empty() {
-                    self.eat(TokenType::Comma)?;
+                while self.current_token.token_type != TokenType::Colon
+                    && self.current_token.token_type != TokenType::Semicolon {
+
+                    if !inputs.is_empty() {
+                        self.eat(TokenType::Comma)?;
+                    }
+
+                    // Parse constraint
+                    let constraint = match &self.current_token.token_type {
+                        TokenType::StringLiteral(s) => {
+                            let s = s.clone();
+                            self.eat(TokenType::StringLiteral(s.clone()))?;
+                            s
+                        }
+                        _ => return Err(self.lexer.create_error(ErrorKind::SyntaxError(
+                            "expected string literal for constraint".to_string(),
+                        ))),
+                    };
+
+                    self.eat(TokenType::LeftBracket)?;
+
+                    // Parse expression
+                    let expr = match &self.current_token.token_type {
+                        TokenType::Identifier(name) => {
+                            let name = name.clone();
+                            self.eat(TokenType::Identifier(name.clone()))?;
+                            name
+                        }
+                        _ => return Err(self.lexer.create_error(ErrorKind::SyntaxError(
+                            "expected identifier for input operand".to_string(),
+                        ))),
+                    };
+
+                    self.eat(TokenType::RightBracket)?;
+                    inputs.push((constraint, expr));
+
+                    // Skip whitespace before next token
+                    self.lexer.skip_whitespace_and_comments();
                 }
-
-                // Parse constraint
-                let constraint = match &self.current_token.token_type {
-                    TokenType::StringLiteral(s) => {
-                        let s = s.clone();
-                        self.eat(TokenType::StringLiteral(s.clone()))?;
-                        s
-                    }
-                    _ => return Err(self.lexer.create_error(ErrorKind::SyntaxError(
-                        "expected string literal for constraint".to_string(),
-                    ))),
-                };
-
-                self.eat(TokenType::LeftBracket)?;
-
-                // Parse expression
-                let expr = match &self.current_token.token_type {
-                    TokenType::Identifier(name) => {
-                        let name = name.clone();
-                        self.eat(TokenType::Identifier(name.clone()))?;
-                        name
-                    }
-                    _ => return Err(self.lexer.create_error(ErrorKind::SyntaxError(
-                        "expected identifier for input operand".to_string(),
-                    ))),
-                };
-
-                self.eat(TokenType::RightBracket)?;
-                inputs.push((constraint, expr));
             }
 
-            // Skip third colon (clobbers)
-            self.eat(TokenType::Colon)?;
+            // Parse clobbers if there's a third colon
+            if self.current_token.token_type == TokenType::Colon {
+                self.eat(TokenType::Colon)?;
 
-            // Parse clobbers
-            while self.current_token.token_type != TokenType::Semicolon {
-                if !clobbers.is_empty() {
-                    self.eat(TokenType::Comma)?;
-                }
-
-                let clobber = match &self.current_token.token_type {
-                    TokenType::StringLiteral(s) => {
-                        let s = s.clone();
-                        self.eat(TokenType::StringLiteral(s.clone()))?;
-                        s
+                while self.current_token.token_type != TokenType::Semicolon {
+                    if !clobbers.is_empty() {
+                        self.eat(TokenType::Comma)?;
                     }
-                    _ => return Err(self.lexer.create_error(ErrorKind::SyntaxError(
-                        "expected string literal for clobber".to_string(),
-                    ))),
-                };
 
-                clobbers.push(clobber);
+                    match &self.current_token.token_type {
+                        TokenType::StringLiteral(s) => {
+                            let s = s.clone();
+                            self.eat(TokenType::StringLiteral(s.clone()))?;
+                            clobbers.push(s);
+                        }
+                        _ => return Err(self.lexer.create_error(ErrorKind::SyntaxError(
+                            "expected string literal for clobber".to_string(),
+                        ))),
+                    }
+
+                    // Skip whitespace before next token
+                    self.lexer.skip_whitespace_and_comments();
+                }
             }
         }
 

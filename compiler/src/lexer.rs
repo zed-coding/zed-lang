@@ -317,7 +317,7 @@ impl Lexer {
         }
     }
 
-    fn skip_whitespace_and_comments(&mut self) {
+    pub fn skip_whitespace_and_comments(&mut self) {
         loop {
             // Skip whitespace
             while let Some(ch) = self.peek() {
@@ -409,6 +409,15 @@ impl Lexer {
                     )))),
                 }
             }
+            Some(':') => {
+                let start_column = self.column;
+                self.advance();
+                Ok(Token {
+                    token_type: TokenType::Colon,
+                    line: self.line,
+                    column: start_column,
+                })
+            },
             Some(ch) => match ch {
                 '0'..='9' => self.read_number(),
                 'a'..='z' | 'A'..='Z' | '_' => self.read_identifier(),
@@ -544,6 +553,33 @@ impl Lexer {
                     })
                 }
                 '"' => self.read_string(),
+                ':' => {
+                    let col = self.column;
+                    self.advance();
+                    Ok(Token {
+                        token_type: TokenType::Colon,
+                        line: self.line,
+                        column: col,
+                    })
+                },
+                '[' => {
+                    let col = self.column;
+                    self.advance();
+                    Ok(Token {
+                        token_type: TokenType::LeftBracket,
+                        line: self.line,
+                        column: col,
+                    })
+                },
+                ']' => {
+                    let col = self.column;
+                    self.advance();
+                    Ok(Token {
+                        token_type: TokenType::RightBracket,
+                        line: self.line,
+                        column: col,
+                    })
+                },
                 _ => Err(self.create_error(ErrorKind::SyntaxError(format!(
                     "unexpected character: {}",
                     ch

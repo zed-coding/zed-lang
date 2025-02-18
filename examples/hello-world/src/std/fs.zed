@@ -6,7 +6,7 @@ fn open(path, flags) {
          movq %rsi, %rsi  # flags
          xor %rdx, %rdx   # mode = 0
          syscall"
-         : "=r"[fd]       # return fd in rax
+         : "=r"[fd]
          : "r"[path], "r"[flags]
          : "rax", "rdi", "rsi", "rdx";
     return fd;

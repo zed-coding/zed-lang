@@ -20,7 +20,12 @@
           "language": "zed",
           "scopeName": "source.zed",
           "path": "./syntaxes/zed.tmLanguage.json"
-      }]
+      }],
+      "themes": [{
+        "label": "Zed",
+        "uiTheme": "vs-dark",
+        "path": "./themes/zed-theme.json"
+    }]
   },
   "repository": {"url": "https://github.com/zed-coding/zed-lang"},
   "license": "Apache-2.0"

@@ -7,6 +7,8 @@
  - Number operations
  - Variable scoping */
 
+@include <std/io.zed>;
+
 // Helper function to calculate power
 fn power(base, exp) {
     if (exp < 1) {

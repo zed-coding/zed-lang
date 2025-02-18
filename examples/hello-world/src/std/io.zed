@@ -1,29 +1,68 @@
 // I/O Operations
 fn puts(str) {
-    asm "movq %rdi, %rsi     
-         movq $1, %rax      
-         movq $1, %rdi      
-.strlen:
-         cmpb $0, (%rsi,%rdx)
+    asm "movq %rdi, %rsi      # input string to rsi
+         subq $256, %rsp      # allocate buffer space
+         movq %rsp, %r8       # r8 points to our buffer
+         xor %rdx, %rdx       # zero source counter
+         xor %rcx, %rcx       # zero dest counter
+.copy:
+         cmpb $0, (%rsi,%rdx) # check for null terminator
          je .write
-         inc %rdx           
-         jmp .strlen        
+         cmpb $92, (%rsi,%rdx)  # check for backslash
+         jne .regular_char
+
+         inc %rdx              # move past backslash
+         movb (%rsi,%rdx), %al # get escape char
+
+         cmpb $110, %al       # check for 'n'
+         jne .check_t
+         movb $10, (%r8,%rcx)  # newline
+         jmp .next
+.check_t:
+         cmpb $116, %al       # check for 't'
+         jne .check_r
+         movb $9, (%r8,%rcx)   # tab
+         jmp .next
+.check_r:
+         cmpb $114, %al       # check for 'r'
+         jne .check_b
+         movb $13, (%r8,%rcx)  # carriage return
+         jmp .next
+.check_b:
+         cmpb $92, %al        # check for backslash
+         jne .next
+         movb $92, (%r8,%rcx)  # backslash
+         jmp .next
+
+.regular_char:
+         movb (%rsi,%rdx), %al
+         movb %al, (%r8,%rcx)
+.next:
+         inc %rdx
+         inc %rcx
+         jmp .copy
+
 .write:
-         syscall"
+         movq $1, %rax        # syscall number for write
+         movq $1, %rdi        # stdout fd
+         movq %r8, %rsi       # buffer address
+         movq %rcx, %rdx      # buffer length
+         syscall
+         addq $256, %rsp      # restore stack"
     :
     : "r"[str]
-    : "rax", "rdi", "rsi", "rdx";
+    : "rax", "rdi", "rsi", "rdx", "rcx", "r8";
 }
 
 fn putchar(c) {
-    asm "movq %rdi, %rax   
-         pushq %rax        
-         movq $1, %rax     
-         movq $1, %rdi     
-         movq %rsp, %rsi   
-         movq $1, %rdx     
+    asm "movq %rdi, %rax      # get character
+         pushq %rax           # save character to stack
+         movq $1, %rax        # syscall number for write
+         movq $1, %rdi        # stdout fd
+         movq %rsp, %rsi      # point to character
+         movq $1, %rdx        # length is 1
          syscall
-         popq %rax"       
+         popq %rax            # restore stack"
     :
     : "r"[c]
     : "rax", "rdi", "rsi", "rdx";
@@ -31,5 +70,4 @@ fn putchar(c) {
 
 fn println(str) {
     puts(str);
-    putchar(10);
 }

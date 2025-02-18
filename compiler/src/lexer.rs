@@ -106,8 +106,11 @@ pub enum TokenType {
     RBrace,
     If,
     Else,
+    And,
+    Or,
     While,
     Equals,
+    NotEquals,
     Less,
     Greater,
     Function,
@@ -143,8 +146,11 @@ impl fmt::Display for TokenType {
             TokenType::RBrace => write!(f, "}}"),
             TokenType::If => write!(f, "if"),
             TokenType::Else => write!(f, "else"),
+            TokenType::And => write!(f, "&&"),
+            TokenType::Or => write!(f, "||"),
             TokenType::While => write!(f, "while"),
             TokenType::Equals => write!(f, "=="),
+            TokenType::NotEquals => write!(f, "!="),
             TokenType::Less => write!(f, "<"),
             TokenType::Greater => write!(f, ">"),
             TokenType::LessEqual => write!(f, "<="),
@@ -397,10 +403,11 @@ impl Lexer {
 
                 // Check for "std/"
                 if self.position + 3 < self.input.len() {
-                    if self.input[self.position] == 's' &&
-                       self.input[self.position + 1] == 't' &&
-                       self.input[self.position + 2] == 'd' &&
-                       self.input[self.position + 3] == '/' {
+                    if self.input[self.position] == 's'
+                        && self.input[self.position + 1] == 't'
+                        && self.input[self.position + 2] == 'd'
+                        && self.input[self.position + 3] == '/'
+                    {
                         self.position += 4;
                         self.column += 4;
 
@@ -426,7 +433,7 @@ impl Lexer {
                     line: self.line,
                     column: start_column,
                 })
-            },
+            }
             Some('@') => {
                 self.advance();
                 let mut identifier = String::new();
@@ -509,6 +516,21 @@ impl Lexer {
                             line: self.line,
                             column: self.column - 1,
                         })
+                    }
+                }
+                '!' => {
+                    self.advance();
+                    if self.peek() == Some('=') {
+                        self.advance();
+                        Ok(Token {
+                            token_type: TokenType::NotEquals,
+                            line: self.line,
+                            column: self.column - 2,
+                        })
+                    } else {
+                        Err(self.create_error(ErrorKind::SyntaxError(
+                            "unexpected '!' - did you mean '!='?".to_string(),
+                        )))
                     }
                 }
                 '<' => {
@@ -604,22 +626,36 @@ impl Lexer {
                     })
                 }
                 '[' => {
-                    let col = self.column;
                     self.advance();
                     Ok(Token {
                         token_type: TokenType::LeftBracket,
                         line: self.line,
-                        column: col,
+                        column: self.column - 1,
                     })
                 }
                 ']' => {
-                    let col = self.column;
                     self.advance();
                     Ok(Token {
                         token_type: TokenType::RightBracket,
                         line: self.line,
-                        column: col,
+                        column: self.column - 1,
                     })
+                }
+                '&' => {
+                    let start_column = self.column;
+                    self.advance();
+                    if self.peek() == Some('&') {
+                        self.advance();
+                        Ok(Token {
+                            token_type: TokenType::And,
+                            line: self.line,
+                            column: start_column,
+                        })
+                    } else {
+                        Err(self.create_error(ErrorKind::SyntaxError(
+                            "unexpected '&' - did you mean '&&'?".to_string(),
+                        )))
+                    }
                 }
                 _ => Err(self.create_error(ErrorKind::SyntaxError(format!(
                     "unexpected character: {}",

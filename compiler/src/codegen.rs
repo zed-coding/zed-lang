@@ -135,6 +135,11 @@ impl CodeGenerator {
                         self.emit("    sete %al");
                         self.emit("    movzbq %al, %rax");
                     }
+                    BinaryOperator::NotEquals => {
+                        self.emit("    cmpq %rcx, %rax");
+                        self.emit("    setne %al");
+                        self.emit("    movzbq %al, %rax");
+                    }
                     BinaryOperator::Less => {
                         self.emit("    cmpq %rcx, %rax");
                         self.emit("    setl %al");
@@ -154,6 +159,24 @@ impl CodeGenerator {
                         self.emit("    cmpq %rcx, %rax");
                         self.emit("    setge %al");
                         self.emit("    movzbq %al, %rax");
+                    }
+                    BinaryOperator::And => {
+                        self.emit("    testq %rax, %rax"); // Test first operand
+                        let skip_label = self.get_new_label();
+                        self.emit(&format!("    jz {}", skip_label)); // If false, skip second operand
+                        self.emit("    testq %rcx, %rcx"); // Test second operand
+                        self.emit("    setne %al"); // Set result based on second operand
+                        self.emit("    movzbq %al, %rax");
+                        self.emit(&format!("{}:", skip_label));
+                    }
+                    BinaryOperator::Or => {
+                        self.emit("    testq %rax, %rax"); // Test first operand
+                        let skip_label = self.get_new_label();
+                        self.emit(&format!("    jnz {}", skip_label)); // If true, skip second operand
+                        self.emit("    testq %rcx, %rcx"); // Test second operand
+                        self.emit("    setne %al"); // Set result based on second operand
+                        self.emit("    movzbq %al, %rax");
+                        self.emit(&format!("{}:", skip_label));
                     }
                 }
 
@@ -279,6 +302,34 @@ impl CodeGenerator {
                 self.emit("    movq %rbp, %rsp");
                 self.emit("    popq %rbp");
                 self.emit("    ret");
+            }
+            AstNode::ArrayIndex(array, index) => {
+                // Generate array base address
+                self.generate_node(array);
+                // Generate index
+                self.generate_node(index);
+
+                // Compute effective address and load value
+                self.emit("    popq %rcx        # index");
+                self.emit("    popq %rax        # array base");
+                self.emit("    leaq (%rax,%rcx), %rax");
+                self.emit("    movzbq (%rax), %rax");
+                self.emit("    pushq %rax");
+            }
+
+            AstNode::ArrayAssignment(array, index, value) => {
+                // Generate value first (will be on top of stack)
+                self.generate_node(value);
+                // Generate array base address
+                self.generate_node(array);
+                // Generate index
+                self.generate_node(index);
+
+                // Store value at computed address
+                self.emit("    popq %rcx        # index");
+                self.emit("    popq %rax        # array base");
+                self.emit("    popq %rdx        # value");
+                self.emit("    movb %dl, (%rax,%rcx)");
             }
             AstNode::InlineAsm {
                 template,

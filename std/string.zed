@@ -1,0 +1,40 @@
+// String manipulation functions
+fn strlen(str) {
+    len = 0;
+    while (str[len] != 0) {
+        len = len + 1;
+    }
+    return len;
+}
+
+fn strcpy(dest, src) {
+    i = 0;
+    while (src[i] != 0) {
+        dest[i] = src[i];
+        i = i + 1;
+    }
+    dest[i] = 0; // Null terminator
+    return dest;
+}
+
+fn strcat(dest, src) {
+    dest_len = strlen(dest);
+    i = 0;
+    while (src[i] != 0) {
+        dest[dest_len + i] = src[i];
+        i = i + 1;
+    }
+    dest[dest_len + i] = 0;
+    return dest;
+}
+
+fn strcmp(s1, s2) {
+    i = 0;
+    while (s1[i] != 0 && s2[i] != 0) {
+        if (s1[i] != s2[i]) {
+            return s1[i] - s2[i];
+        }
+        i = i + 1;
+    }
+    return s1[i] - s2[i];
+}

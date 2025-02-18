@@ -62,7 +62,7 @@ impl Parser {
                 self.eat(TokenType::StringLiteral(path.clone()))?;
                 // Check if this was from a <std/...> include
                 if path.starts_with("std/") {
-                    (path[4..].to_string(), true)  // Remove "std/" prefix
+                    (path[4..].to_string(), true) // Remove "std/" prefix
                 } else {
                     (path, false)
                 }
@@ -81,9 +81,10 @@ impl Parser {
             match Self::get_default_stdlib_path() {
                 Ok(stdlib_path) => stdlib_path.join(&file_path),
                 Err(e) => {
-                    return Err(self.lexer.create_error(ErrorKind::IOError(
-                        format!("couldn't determine stdlib path: {}", e)
-                    )))
+                    return Err(self.lexer.create_error(ErrorKind::IOError(format!(
+                        "couldn't determine stdlib path: {}",
+                        e
+                    ))))
                 }
             }
         } else {
@@ -93,26 +94,29 @@ impl Parser {
         let canonical_path = match full_path.canonicalize() {
             Ok(path) => path,
             Err(e) => {
-                return Err(self.lexer.create_error(ErrorKind::IOError(
-                    format!("failed to resolve path '{}': {}", file_path, e)
-                )))
+                return Err(self.lexer.create_error(ErrorKind::IOError(format!(
+                    "failed to resolve path '{}': {}",
+                    file_path, e
+                ))))
             }
         };
 
         // Check for circular includes
         if !self.included_files.insert(canonical_path.clone()) {
-            return Err(self.lexer.create_error(ErrorKind::SyntaxError(
-                format!("circular include detected: {}", file_path)
-            )));
+            return Err(self.lexer.create_error(ErrorKind::SyntaxError(format!(
+                "circular include detected: {}",
+                file_path
+            ))));
         }
 
         // Read and parse the included file
         let source = match fs::read_to_string(&canonical_path) {
             Ok(content) => content,
             Err(e) => {
-                return Err(self.lexer.create_error(ErrorKind::IOError(
-                    format!("couldn't read '{}': {}", file_path, e)
-                )))
+                return Err(self.lexer.create_error(ErrorKind::IOError(format!(
+                    "couldn't read '{}': {}",
+                    file_path, e
+                ))))
             }
         };
 
@@ -128,7 +132,10 @@ impl Parser {
             declared_functions: self.declared_functions.clone(),
             defined_functions: self.defined_functions.clone(),
             included_files: self.included_files.clone(),
-            current_dir: canonical_path.parent().unwrap_or(Path::new(".")).to_path_buf(),
+            current_dir: canonical_path
+                .parent()
+                .unwrap_or(Path::new("."))
+                .to_path_buf(),
             stdlib_path: self.stdlib_path.clone(),
         };
         included_parser.current_token = included_parser.lexer.next_token()?;
@@ -414,19 +421,25 @@ impl Parser {
     }
 
     fn parse_assignment(&mut self) -> Result<AstNode> {
-        let expr = self.parse_comparison()?;
+        let mut expr = self.parse_logical()?;
 
         if let TokenType::Assign = self.current_token.token_type {
-            if let AstNode::Variable(name) = expr {
-                self.eat(TokenType::Assign)?;
-                let value = self.parse_assignment()?;
-                return Ok(AstNode::Assignment(name, Box::new(value)));
-            } else {
-                return Err(self
-                    .lexer
-                    .create_error(crate::lexer::ErrorKind::SyntaxError(
+            match expr {
+                AstNode::Variable(name) => {
+                    self.eat(TokenType::Assign)?;
+                    let value = self.parse_assignment()?;
+                    expr = AstNode::Assignment(name, Box::new(value));
+                }
+                AstNode::ArrayIndex(array, index) => {
+                    self.eat(TokenType::Assign)?;
+                    let value = self.parse_assignment()?;
+                    expr = AstNode::ArrayAssignment(array, index, Box::new(value));
+                }
+                _ => {
+                    return Err(self.lexer.create_error(ErrorKind::SyntaxError(
                         "invalid assignment target".to_string(),
-                    )));
+                    )))
+                }
             }
         }
 
@@ -441,6 +454,10 @@ impl Parser {
                 TokenType::Equals => {
                     self.eat(TokenType::Equals)?;
                     BinaryOperator::Equals
+                }
+                TokenType::NotEquals => {
+                    self.eat(TokenType::NotEquals)?;
+                    BinaryOperator::NotEquals
                 }
                 TokenType::Less => {
                     self.eat(TokenType::Less)?;
@@ -462,6 +479,29 @@ impl Parser {
             };
 
             let right = self.parse_additive()?;
+            expr = AstNode::BinaryOp(Box::new(expr), op, Box::new(right));
+        }
+
+        Ok(expr)
+    }
+
+    fn parse_logical(&mut self) -> Result<AstNode> {
+        let mut expr = self.parse_comparison()?;
+
+        loop {
+            let op = match &self.current_token.token_type {
+                TokenType::And => {
+                    self.eat(TokenType::And)?;
+                    BinaryOperator::And
+                }
+                TokenType::Or => {
+                    self.eat(TokenType::Or)?;
+                    BinaryOperator::Or
+                }
+                _ => break,
+            };
+
+            let right = self.parse_comparison()?;
             expr = AstNode::BinaryOp(Box::new(expr), op, Box::new(right));
         }
 
@@ -616,6 +656,7 @@ impl Parser {
         Ok(AstNode::FunctionCall(name, arguments))
     }
 
+    #[allow(unreachable_patterns)]
     fn parse_primary(&mut self) -> Result<AstNode> {
         match &self.current_token.token_type.clone() {
             TokenType::Number(n) => {
@@ -631,9 +672,16 @@ impl Parser {
             TokenType::Identifier(name) => {
                 let name = name.clone();
                 self.eat(TokenType::Identifier(name.clone()))?;
-
-                // Check if this is a function call
-                if self.current_token.token_type == TokenType::LParen {
+                // Check if this is an array index
+                if self.current_token.token_type == TokenType::LeftBracket {
+                    self.eat(TokenType::LeftBracket)?;
+                    let index = self.parse_expression()?;
+                    self.eat(TokenType::RightBracket)?;
+                    Ok(AstNode::ArrayIndex(
+                        Box::new(AstNode::Variable(name)),
+                        Box::new(index),
+                    ))
+                } else if self.current_token.token_type == TokenType::LParen {
                     self.parse_function_call(name)
                 } else {
                     Ok(AstNode::Variable(name))

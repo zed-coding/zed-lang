@@ -13,6 +13,8 @@ pub enum AstNode {
     FunctionCall(String, Vec<AstNode>),
     Return(Option<Box<AstNode>>),
     StringLiteral(String),
+    ArrayIndex(Box<AstNode>, Box<AstNode>),
+    ArrayAssignment(Box<AstNode>, Box<AstNode>, Box<AstNode>),
     InlineAsm {
         template: String,
         outputs: Vec<(String, String)>, // (constraint, expression)
@@ -28,6 +30,9 @@ pub enum BinaryOperator {
     Multiply,
     Divide,
     Equals,
+    NotEquals,
+    And,
+    Or,
     Less,
     Greater,
     LessEqual,

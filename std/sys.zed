@@ -1,0 +1,42 @@
+// System call wrappers
+fn exit(code) {
+    asm "movq $60, %rax      # exit syscall
+         movq %rdi, %rdi     # exit code
+         syscall"
+    :
+    : "r"[code]
+    : "rax", "rdi";
+}
+
+fn sleep(seconds) {
+    asm "movq $35, %rax      # nanosleep syscall
+         subq $16, %rsp      # allocate timespec
+         movq %rdi, (%rsp)   # seconds
+         movq $0, 8(%rsp)    # nanoseconds
+         movq %rsp, %rdi     # timespec ptr
+         xorq %rsi, %rsi     # remaining = NULL
+         syscall
+         addq $16, %rsp      # cleanup stack"
+    :
+    : "r"[seconds]
+    : "rax", "rdi", "rsi";
+}
+
+fn getpid() {
+    asm "movq $39, %rax      # getpid syscall
+         syscall"
+    : "=r"[pid]
+    :
+    : "rax";
+    return pid;
+}
+
+fn time() {
+    asm "movq $201, %rax     # time syscall
+         xorq %rdi, %rdi     # NULL parameter
+         syscall"
+    : "=r"[t]
+    :
+    : "rax", "rdi";
+    return t;
+}

@@ -1,0 +1,43 @@
+// Memory management functions
+fn memcpy(dest, src, n) {
+    i = 0;
+    while (i < n) {
+        dest[i] = src[i];
+        i = i + 1;
+    }
+    return dest;
+}
+
+fn memset(ptr, value, n) {
+    i = 0;
+    while (i < n) {
+        ptr[i] = value;
+        i = i + 1;
+    }
+    return ptr;
+}
+
+fn malloc(size) {
+    asm "movq $9, %rax       # mmap syscall
+         xorq %rdi, %rdi     # addr = NULL
+         movq %rsi, %rsi     # size from parameter
+         movq $3, %rdx       # PROT_READ | PROT_WRITE
+         movq $0x22, %r10    # MAP_PRIVATE | MAP_ANONYMOUS
+         movq $-1, %r8       # fd = -1
+         xorq %r9, %r9       # offset = 0
+         syscall"
+    : "=r"[ptr]
+    : "r"[size]
+    : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9";
+    return ptr;
+}
+
+fn free(ptr, size) {
+    asm "movq $11, %rax      # munmap syscall
+         movq %rdi, %rdi     # address
+         movq %rsi, %rsi     # size
+         syscall"
+    :
+    : "r"[ptr], "r"[size]
+    : "rax", "rdi", "rsi";
+}

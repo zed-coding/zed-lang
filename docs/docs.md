@@ -1,128 +1,183 @@
 # Zed Programming Language
 
-[![GitHub contributors](https://img.shields.io/github/contributors/zed-coding/zed-lang.svg)](https://github.com/zed-coding/zed-lang/graphs/contributors)
-[![GitHub stars](https://img.shields.io/github/stars/zed-coding/zed-lang.svg)](https://github.com/zed-coding/zed-lang/stargazers)
-[![GitHub issues](https://img.shields.io/github/issues/zed-coding/zed-lang.svg)](https://github.com/zed-coding/zed-lang/issues)
-[![GitHub license](https://img.shields.io/github/license/zed-coding/zed-lang.svg)](https://github.com/zed-coding/zed-lang/blob/main/LICENSE)
-[![Latest Release](https://img.shields.io/github/v/release/zed-coding/zed-lang)](https://github.com/zed-coding/zed-lang/releases)
-![Build Status](https://img.shields.io/github/actions/workflow/status/zed-coding/zed-lang/build.yml)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
 ## Overview
 
-Zed is a systems programming language focusing on simplicity, performance, and low-level control. Designed to compile directly to x86-64 assembly, Zed provides developers with a straightforward yet powerful programming experience.
+Zed is a systems programming language that compiles directly to x86-64 assembly. It focuses on simplicity, low-level control, and minimal runtime overhead while providing a comfortable syntax for systems programming.
 
 ## Key Features
 
-- Direct x86-64 assembly compilation
-- Minimal runtime overhead
-- Inline assembly support
-- Simple, C-like syntax
-- Statically typed
-- Lightweight standard library
+- Direct compilation to x86-64 assembly
+- Zero runtime overhead
+- First-class inline assembly support
+- C-like syntax with modern conveniences
+- Static typing
+- Comprehensive standard library
+- Built-in build system
 
 ## Language Fundamentals
 
-### Syntax
+### Basic Syntax
 
 ```zed
-// Single-line comment
+// Single-line comments
 /* Multi-line
-   comment */
+   comments */
 
 // Include standard library
 @include <std/io.zed>;
-@include <std/math.zed>;
-```
 
-## Standard Library
+// Include local file
+@include "mylib.zed";
 
-### Current Implementations
-
-#### I/O Library (`std/io.zed`)
-- `puts(str)`: Write a string to standard output
-- `putchar(c)`: Write a single character to standard output
-- `println(str)`: Write a string with a newline
-
-#### Math Library (`std/math.zed`)
-- `abs(x)`: Calculate absolute value
-- `min(a, b)`: Return minimum of two numbers
-- `max(a, b)`: Return maximum of two numbers
-
-## Data Types
-
-### Primitive Types
-- 64-bit signed integers
-- Strings (basic support)
-
-## Control Structures
-
-```zed
-// Conditional statement
-if (x > 10) {
-    println("Greater than 10");
-} else {
-    println("Less than or equal to 10");
-}
-
-// While loop
-i = 0;
-while (i < 10) {
-    println(i);
-    i = i + 1;
-}
-```
-
-## Function Declaration
-
-```zed
-// Function with return
+// Function declaration
 fn add(a, b) {
     return a + b;
 }
 
-// Predeclaration
-fn complex_function();
-fn complex_function() {
-    // Implementation
-}
+// Variables
+x = 42;
+str = "Hello, Zed!";
 ```
 
-## Inline Assembly
+### Standard Library
+
+The standard library is organized into modules:
+
+#### I/O Operations (`std/io.zed`)
+- `puts(str)`: Write string to stdout
+- `putchar(c)`: Write character to stdout
+- `println(str)`: Write string with newline
+
+#### Math Operations (`std/math.zed`)
+- `abs(x)`: Absolute value
+- `min(a, b)`: Minimum of two numbers
+- `max(a, b)`: Maximum of two numbers
+
+#### String Operations (`std/string.zed`)
+- `strlen(str)`: Get string length
+- `strcpy(dest, src)`: Copy string
+- `strcat(dest, src)`: Concatenate strings
+- `strcmp(s1, s2)`: Compare strings
+
+#### System Operations (`std/sys.zed`)
+- `exit(code)`: Exit program
+- `sleep(seconds)`: Sleep for seconds
+- `getpid()`: Get process ID
+- `time()`: Get system time
+
+#### Memory Operations (`std/memory.zed`)
+- `memcpy(dest, src, n)`: Copy memory
+- `memset(ptr, value, n)`: Set memory
+- `malloc(size)`: Allocate memory
+- `free(ptr, size)`: Free memory
+
+### Control Flow
 
 ```zed
-fn custom_syscall(call_number, arg1, arg2, arg3) {
-    asm "syscall" 
-    : "=r"[result]
-    : "r"[call_number], "r"[arg1], "r"[arg2], "r"[arg3]
-    : "rcx", "r11";
-    return result;
+// If statement
+if (condition) {
+    // code
+} else {
+    // code
+}
+
+// While loop
+while (condition) {
+    // code
 }
 ```
 
-## Compilation Process
+### Functions
 
-1. Lexical Analysis
-2. Syntactic Parsing
-3. Abstract Syntax Tree Generation
-4. x86-64 Assembly Code Generation
-5. Assembly and Linking
+```zed
+// Function declaration
+fn my_function(param1, param2) {
+    return param1 + param2;
+}
 
-## Roadmap
+// Function predeclaration
+fn complex_function();
 
-### Planned Improvements
-- Expanded type system
-- More standard library functions
-- Improved error handling
-- Optimization techniques
+// Implementation
+fn complex_function() {
+    // code
+}
+```
+
+### Inline Assembly
+
+Zed provides powerful inline assembly support with operand constraints:
+
+```zed
+fn syscall(number) {
+    asm "movq %rdi, %rax    # syscall number
+         syscall"
+    :                       # outputs
+    : "r"[number]          # inputs
+    : "rax";               # clobbers
+}
+```
+
+### Arrays and Memory
+
+```zed
+// Array operations
+buffer[0] = 65;  // ASCII 'A'
+value = buffer[0];
+
+// Memory allocation
+ptr = malloc(1024);
+free(ptr, 1024);
+```
+
+## Build System
+
+Zed includes a robust build system (`zed`) with the following commands:
+
+```bash
+# Create new project
+zed new project-name
+
+# Build project
+zed build
+zed build --release
+
+# Run project
+zed run
+zed run --release
+
+# Clean build artifacts
+zed clean
+
+# Install/update standard library
+zed install-std
+```
+
+## Project Structure
+
+A typical Zed project looks like:
+
+```
+my-project/
+├── src/
+│   └── main.zed
+├── examples/
+├── target/
+├── zed.json
+└── .gitignore
+```
 
 ## Installation
 
 ### Prerequisites
-- Rust (1.70.0+)
+- Rust toolchain (1.70.0+)
 - GNU Assembler (as)
 - GNU Linker (ld)
 
 ### Build from Source
+
 ```bash
 git clone https://github.com/zed-coding/zed-lang.git
 cd zed-lang
@@ -130,24 +185,42 @@ cargo build --release
 cargo install --path .
 ```
 
+### Standard Library Installation
+
+The standard library is automatically installed in `~/.zed-lang/std/version/1.0.0/` when creating a new project. You can manually install or update it:
+
+```bash
+zed install-std
+```
+
+## VS Code Extension
+
+Zed includes syntax highlighting support for Visual Studio Code. Features include:
+
+- Syntax highlighting for:
+  - Keywords
+  - Functions
+  - Strings
+  - Numbers
+  - Comments
+  - Inline assembly
+- Bracket matching
+- Auto-closing pairs
+- Comment toggling
+
 ## Contributing
 
-Contributions are welcome. Please:
 1. Fork the repository
 2. Create a feature branch
-3. Commit changes
-4. Push to the branch
-5. Create a pull request
-
-## License
-
-Apache 2.0
+3. Make your changes
+4. Run tests
+5. Submit a pull request
 
 ## Author
 
-Voltaged (VoltagedDebunked)
+Voltaged (VoltagedDebunked)  
 Email: rusindanilo@gmail.com
 
-## Acknowledgments
+## License
 
-Thanks to the open-source community and early contributors.
+Apache License 2.0

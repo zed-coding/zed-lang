@@ -280,7 +280,12 @@ impl CodeGenerator {
                 self.emit("    popq %rbp");
                 self.emit("    ret");
             }
-            AstNode::InlineAsm { template, outputs, inputs, clobbers } => {
+            AstNode::InlineAsm {
+                template,
+                outputs,
+                inputs,
+                clobbers,
+            } => {
                 // Generate assembly prologue
                 self.emit("    # Begin inline assembly");
 
@@ -352,10 +357,7 @@ impl CodeGenerator {
                 .string_literals
                 .iter()
                 .enumerate()
-                .flat_map(|(i, s)| vec![
-                    format!("str{}:", i),
-                    format!("    .string \"{}\"", s)
-                ])
+                .flat_map(|(i, s)| vec![format!("str{}:", i), format!("    .string \"{}\"", s)])
                 .collect();
 
             // Emit string declarations
@@ -403,9 +405,9 @@ impl CodeGenerator {
             self.emit("    syscall");
         } else {
             // For included files, only generate non-function code if it exists
-            let has_non_function_code = ast.iter().any(|node| {
-                !matches!(node, AstNode::FunctionDecl(_, _, _))
-            });
+            let has_non_function_code = ast
+                .iter()
+                .any(|node| !matches!(node, AstNode::FunctionDecl(_, _, _)));
 
             if has_non_function_code {
                 // Create an initialization function for this file

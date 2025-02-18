@@ -35,7 +35,9 @@ impl CompilerError {
     }
 
     pub fn format_error(&self) -> String {
-        use crate::colors::{error_style, error_location_style, error_source_style, error_pointer_style};
+        use crate::colors::{
+            error_location_style, error_pointer_style, error_source_style, error_style,
+        };
 
         let mut error = String::new();
 
@@ -88,6 +90,7 @@ impl CompilerError {
 pub type Result<T> = std::result::Result<T, CompilerError>;
 
 #[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
 pub enum TokenType {
     Number(i64),
     Identifier(String),
@@ -119,6 +122,7 @@ pub enum TokenType {
     Colon,
     LeftBracket,
     RightBracket,
+    Dot,
     EOF,
 }
 
@@ -155,6 +159,7 @@ impl fmt::Display for TokenType {
             TokenType::Colon => write!(f, ":"),
             TokenType::LeftBracket => write!(f, "["),
             TokenType::RightBracket => write!(f, "]"),
+            TokenType::Dot => write!(f, "."),
             TokenType::EOF => write!(f, "end of file"),
         }
     }
@@ -386,6 +391,42 @@ impl Lexer {
                 line: self.line,
                 column: self.column,
             }),
+            Some('<') => {
+                let start_column = self.column;
+                self.advance(); // skip
+
+                // Check for "std/"
+                if self.position + 3 < self.input.len() {
+                    if self.input[self.position] == 's' &&
+                       self.input[self.position + 1] == 't' &&
+                       self.input[self.position + 2] == 'd' &&
+                       self.input[self.position + 3] == '/' {
+                        self.position += 4;
+                        self.column += 4;
+
+                        // Collect everything until >
+                        let mut path = String::new();
+                        while let Some(ch) = self.peek() {
+                            if ch == '>' {
+                                self.advance();
+                                return Ok(Token {
+                                    token_type: TokenType::StringLiteral(format!("std/{}", path)),
+                                    line: self.line,
+                                    column: start_column,
+                                });
+                            }
+                            path.push(ch);
+                            self.advance();
+                        }
+                    }
+                }
+
+                Ok(Token {
+                    token_type: TokenType::Less,
+                    line: self.line,
+                    column: start_column,
+                })
+            },
             Some('@') => {
                 self.advance();
                 let mut identifier = String::new();
@@ -417,7 +458,7 @@ impl Lexer {
                     line: self.line,
                     column: start_column,
                 })
-            },
+            }
             Some(ch) => match ch {
                 '0'..='9' => self.read_number(),
                 'a'..='z' | 'A'..='Z' | '_' => self.read_identifier(),
@@ -561,7 +602,7 @@ impl Lexer {
                         line: self.line,
                         column: col,
                     })
-                },
+                }
                 '[' => {
                     let col = self.column;
                     self.advance();
@@ -570,7 +611,7 @@ impl Lexer {
                         line: self.line,
                         column: col,
                     })
-                },
+                }
                 ']' => {
                     let col = self.column;
                     self.advance();
@@ -579,7 +620,7 @@ impl Lexer {
                         line: self.line,
                         column: col,
                     })
-                },
+                }
                 _ => Err(self.create_error(ErrorKind::SyntaxError(format!(
                     "unexpected character: {}",
                     ch

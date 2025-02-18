@@ -11,6 +11,7 @@ pub struct Parser {
     defined_functions: HashSet<String>,
     included_files: HashSet<PathBuf>,
     current_dir: PathBuf,
+    stdlib_path: Option<PathBuf>,
 }
 
 impl Parser {
@@ -26,55 +27,73 @@ impl Parser {
             defined_functions: HashSet::new(),
             included_files: HashSet::new(),
             current_dir: base_path.parent().unwrap_or(Path::new(".")).to_path_buf(),
+            stdlib_path: std::option::Option::None,
         };
         parser.current_token = parser.lexer.next_token()?;
         Ok(parser)
+    }
+
+    // Add this method to Parser impl
+    pub fn set_stdlib_path(&mut self, path: PathBuf) {
+        self.stdlib_path = Some(path);
+    }
+
+    // Modify get_stdlib_path to use custom path if set
+    pub fn get_default_stdlib_path() -> std::io::Result<PathBuf> {
+        let home = std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
+            .map_err(|e| {
+                std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!("Could not find home directory: {}", e),
+                )
+            })?;
+
+        Ok(PathBuf::from(home).join(".zed-lang/std/version/1.0.0"))
     }
 
     fn parse_include(&mut self) -> Result<Vec<AstNode>> {
         self.eat(TokenType::Include)?;
 
         // Get the string literal for the file path
-        let file_path = match &self.current_token.token_type {
+        let (file_path, is_system_include) = match &self.current_token.token_type {
             TokenType::StringLiteral(path) => {
                 let path = path.clone();
                 self.eat(TokenType::StringLiteral(path.clone()))?;
-                path
+                // Check if this was from a <std/...> include
+                if path.starts_with("std/") {
+                    (path[4..].to_string(), true)  // Remove "std/" prefix
+                } else {
+                    (path, false)
+                }
             }
             _ => {
-                return Err(self.lexer.create_error(crate::lexer::ErrorKind::SyntaxError(
+                return Err(self.lexer.create_error(ErrorKind::SyntaxError(
                     "expected string literal after @include".to_string(),
                 )))
             }
         };
 
-        // Optional 'from' directive for specifying base path
-        let base_path = if let TokenType::From = self.current_token.token_type {
-            self.eat(TokenType::From)?;
-            match &self.current_token.token_type {
-                TokenType::StringLiteral(path) => {
-                    let path = path.clone();
-                    self.eat(TokenType::StringLiteral(path.clone()))?;
-                    PathBuf::from(path)
-                }
-                _ => {
-                    return Err(self.lexer.create_error(crate::lexer::ErrorKind::SyntaxError(
-                        "expected string literal after 'from'".to_string(),
+        self.eat(TokenType::Semicolon)?;
+
+        // Resolve the full path based on whether it's a system include or not
+        let full_path = if is_system_include {
+            match Self::get_default_stdlib_path() {
+                Ok(stdlib_path) => stdlib_path.join(&file_path),
+                Err(e) => {
+                    return Err(self.lexer.create_error(ErrorKind::IOError(
+                        format!("couldn't determine stdlib path: {}", e)
                     )))
                 }
             }
         } else {
-            self.current_dir.clone()
+            self.current_dir.join(&file_path)
         };
 
-        self.eat(TokenType::Semicolon)?;
-
-        // Resolve the full path
-        let full_path = base_path.join(&file_path);
         let canonical_path = match full_path.canonicalize() {
             Ok(path) => path,
             Err(e) => {
-                return Err(self.lexer.create_error(crate::lexer::ErrorKind::IOError(
+                return Err(self.lexer.create_error(ErrorKind::IOError(
                     format!("failed to resolve path '{}': {}", file_path, e)
                 )))
             }
@@ -82,7 +101,7 @@ impl Parser {
 
         // Check for circular includes
         if !self.included_files.insert(canonical_path.clone()) {
-            return Err(self.lexer.create_error(crate::lexer::ErrorKind::SyntaxError(
+            return Err(self.lexer.create_error(ErrorKind::SyntaxError(
                 format!("circular include detected: {}", file_path)
             )));
         }
@@ -91,7 +110,7 @@ impl Parser {
         let source = match fs::read_to_string(&canonical_path) {
             Ok(content) => content,
             Err(e) => {
-                return Err(self.lexer.create_error(crate::lexer::ErrorKind::IOError(
+                return Err(self.lexer.create_error(ErrorKind::IOError(
                     format!("couldn't read '{}': {}", file_path, e)
                 )))
             }
@@ -110,6 +129,7 @@ impl Parser {
             defined_functions: self.defined_functions.clone(),
             included_files: self.included_files.clone(),
             current_dir: canonical_path.parent().unwrap_or(Path::new(".")).to_path_buf(),
+            stdlib_path: self.stdlib_path.clone(),
         };
         included_parser.current_token = included_parser.lexer.next_token()?;
 
@@ -159,9 +179,12 @@ impl Parser {
         // Verify all declared functions are defined
         for func_name in &self.declared_functions {
             if !self.defined_functions.contains(func_name) {
-                return Err(self.lexer.create_error(crate::lexer::ErrorKind::SyntaxError(
-                    format!("function '{}' declared but not defined", func_name),
-                )));
+                return Err(self
+                    .lexer
+                    .create_error(crate::lexer::ErrorKind::SyntaxError(format!(
+                        "function '{}' declared but not defined",
+                        func_name
+                    ))));
             }
         }
 
@@ -181,9 +204,11 @@ impl Parser {
                 self.eat(TokenType::StringLiteral(s.clone()))?;
                 s
             }
-            _ => return Err(self.lexer.create_error(ErrorKind::SyntaxError(
-                "expected string literal for asm template".to_string(),
-            ))),
+            _ => {
+                return Err(self.lexer.create_error(ErrorKind::SyntaxError(
+                    "expected string literal for asm template".to_string(),
+                )))
+            }
         };
 
         let mut outputs = Vec::new();
@@ -199,8 +224,8 @@ impl Parser {
 
             // Parse output operands until next colon or semicolon
             while self.current_token.token_type != TokenType::Colon
-                && self.current_token.token_type != TokenType::Semicolon {
-
+                && self.current_token.token_type != TokenType::Semicolon
+            {
                 if !outputs.is_empty() {
                     self.eat(TokenType::Comma)?;
                 }
@@ -212,9 +237,11 @@ impl Parser {
                         self.eat(TokenType::StringLiteral(s.clone()))?;
                         s
                     }
-                    _ => return Err(self.lexer.create_error(ErrorKind::SyntaxError(
-                        "expected string literal for constraint".to_string(),
-                    ))),
+                    _ => {
+                        return Err(self.lexer.create_error(ErrorKind::SyntaxError(
+                            "expected string literal for constraint".to_string(),
+                        )))
+                    }
                 };
 
                 self.eat(TokenType::LeftBracket)?;
@@ -226,9 +253,11 @@ impl Parser {
                         self.eat(TokenType::Identifier(name.clone()))?;
                         name
                     }
-                    _ => return Err(self.lexer.create_error(ErrorKind::SyntaxError(
-                        "expected identifier for output operand".to_string(),
-                    ))),
+                    _ => {
+                        return Err(self.lexer.create_error(ErrorKind::SyntaxError(
+                            "expected identifier for output operand".to_string(),
+                        )))
+                    }
                 };
 
                 self.eat(TokenType::RightBracket)?;
@@ -243,8 +272,8 @@ impl Parser {
                 self.eat(TokenType::Colon)?;
 
                 while self.current_token.token_type != TokenType::Colon
-                    && self.current_token.token_type != TokenType::Semicolon {
-
+                    && self.current_token.token_type != TokenType::Semicolon
+                {
                     if !inputs.is_empty() {
                         self.eat(TokenType::Comma)?;
                     }
@@ -256,9 +285,11 @@ impl Parser {
                             self.eat(TokenType::StringLiteral(s.clone()))?;
                             s
                         }
-                        _ => return Err(self.lexer.create_error(ErrorKind::SyntaxError(
-                            "expected string literal for constraint".to_string(),
-                        ))),
+                        _ => {
+                            return Err(self.lexer.create_error(ErrorKind::SyntaxError(
+                                "expected string literal for constraint".to_string(),
+                            )))
+                        }
                     };
 
                     self.eat(TokenType::LeftBracket)?;
@@ -270,9 +301,11 @@ impl Parser {
                             self.eat(TokenType::Identifier(name.clone()))?;
                             name
                         }
-                        _ => return Err(self.lexer.create_error(ErrorKind::SyntaxError(
-                            "expected identifier for input operand".to_string(),
-                        ))),
+                        _ => {
+                            return Err(self.lexer.create_error(ErrorKind::SyntaxError(
+                                "expected identifier for input operand".to_string(),
+                            )))
+                        }
                     };
 
                     self.eat(TokenType::RightBracket)?;
@@ -298,9 +331,11 @@ impl Parser {
                             self.eat(TokenType::StringLiteral(s.clone()))?;
                             clobbers.push(s);
                         }
-                        _ => return Err(self.lexer.create_error(ErrorKind::SyntaxError(
-                            "expected string literal for clobber".to_string(),
-                        ))),
+                        _ => {
+                            return Err(self.lexer.create_error(ErrorKind::SyntaxError(
+                                "expected string literal for clobber".to_string(),
+                            )))
+                        }
                     }
 
                     // Skip whitespace before next token
@@ -498,17 +533,22 @@ impl Parser {
                 name
             }
             _ => {
-                return Err(self.lexer.create_error(crate::lexer::ErrorKind::SyntaxError(
-                    "expected function name".to_string(),
-                )))
+                return Err(self
+                    .lexer
+                    .create_error(crate::lexer::ErrorKind::SyntaxError(
+                        "expected function name".to_string(),
+                    )))
             }
         };
 
         // Check if function is already defined
         if self.is_function_defined(&name) {
-            return Err(self.lexer.create_error(crate::lexer::ErrorKind::SyntaxError(
-                format!("function '{}' is already defined", name),
-            )));
+            return Err(self
+                .lexer
+                .create_error(crate::lexer::ErrorKind::SyntaxError(format!(
+                    "function '{}' is already defined",
+                    name
+                ))));
         }
 
         // Parse parameters
@@ -552,9 +592,12 @@ impl Parser {
     fn parse_function_call(&mut self, name: String) -> Result<AstNode> {
         // Check if function is declared
         if !self.is_function_declared(&name) {
-            return Err(self.lexer.create_error(crate::lexer::ErrorKind::SyntaxError(
-                format!("call to undeclared function '{}'", name),
-            )));
+            return Err(self
+                .lexer
+                .create_error(crate::lexer::ErrorKind::SyntaxError(format!(
+                    "call to undeclared function '{}'",
+                    name
+                ))));
         }
 
         self.eat(TokenType::LParen)?;

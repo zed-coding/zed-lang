@@ -15,8 +15,8 @@ pub enum AstNode {
     StringLiteral(String),
     InlineAsm {
         template: String,
-        outputs: Vec<(String, String)>,  // (constraint, expression)
-        inputs: Vec<(String, String)>,   // (constraint, expression)
+        outputs: Vec<(String, String)>, // (constraint, expression)
+        inputs: Vec<(String, String)>,  // (constraint, expression)
         clobbers: Vec<String>,
     },
 }

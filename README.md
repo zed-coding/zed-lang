@@ -1,5 +1,12 @@
 # Zed Programming Language
 
+[![GitHub contributors](https://img.shields.io/github/contributors/zed-coding/zed-lang.svg)](https://github.com/zed-coding/zed-lang/graphs/contributors)
+[![GitHub stars](https://img.shields.io/github/stars/zed-coding/zed-lang.svg)](https://github.com/zed-coding/zed-lang/stargazers)
+[![GitHub issues](https://img.shields.io/github/issues/zed-coding/zed-lang.svg)](https://github.com/zed-coding/zed-lang/issues)
+[![GitHub license](https://img.shields.io/github/license/zed-coding/zed-lang.svg)](https://github.com/zed-coding/zed-lang/blob/main/LICENSE)
+[![Latest Release](https://img.shields.io/github/v/release/zed-coding/zed-lang)](https://github.com/zed-coding/zed-lang/releases)
+![Build Status](https://img.shields.io/github/actions/workflow/status/zed-coding/zed-lang/build.yml)
+
 A simple programming language that compiles to x86_64 assembly, featuring functions, control flow, strings, and basic arithmetic operations.
 
 ## Quick Start
@@ -35,7 +42,7 @@ zed run
 
 ## Example
 
-```rust
+```zed
 fn factorial(n) {
     if (n < 2) {
         return 1;
@@ -88,3 +95,8 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 ## Project Status
 
 Zed is currently in active development. While it's stable enough for learning and experimentation, we recommend against using it in production environments at this time.
+
+## Author
+
+Voltaged (VoltagedDebunked)
+Email: rusindanilo@gmail.com

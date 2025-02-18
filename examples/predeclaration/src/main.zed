@@ -1,4 +1,4 @@
-@include "std/io.zed";
+@include <std/io.zed>;
 
 fn hello_world();
 

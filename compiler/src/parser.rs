@@ -56,15 +56,28 @@ impl Parser {
         self.eat(TokenType::Include)?;
 
         // Get the string literal for the file path
-        let (file_path, is_system_include) = match &self.current_token.token_type {
+        let (full_path, _is_system_include) = match &self.current_token.token_type {
             TokenType::StringLiteral(path) => {
                 let path = path.clone();
                 self.eat(TokenType::StringLiteral(path.clone()))?;
+
                 // Check if this was from a <std/...> include
                 if path.starts_with("std/") {
-                    (path[4..].to_string(), true) // Remove "std/" prefix
+                    match Self::get_default_stdlib_path() {
+                        Ok(mut stdlib_path) => {
+                            // Remove "std/" prefix and just use the filename
+                            stdlib_path.push(&path[4..]);  // Skip the "std/" part
+                            (stdlib_path, true)
+                        },
+                        Err(e) => {
+                            return Err(self.lexer.create_error(ErrorKind::IOError(format!(
+                                "couldn't determine stdlib path: {}",
+                                e
+                            ))))
+                        }
+                    }
                 } else {
-                    (path, false)
+                    (self.current_dir.join(&path), false)
                 }
             }
             _ => {
@@ -76,27 +89,12 @@ impl Parser {
 
         self.eat(TokenType::Semicolon)?;
 
-        // Resolve the full path based on whether it's a system include or not
-        let full_path = if is_system_include {
-            match Self::get_default_stdlib_path() {
-                Ok(stdlib_path) => stdlib_path.join(&file_path),
-                Err(e) => {
-                    return Err(self.lexer.create_error(ErrorKind::IOError(format!(
-                        "couldn't determine stdlib path: {}",
-                        e
-                    ))))
-                }
-            }
-        } else {
-            self.current_dir.join(&file_path)
-        };
-
         let canonical_path = match full_path.canonicalize() {
             Ok(path) => path,
             Err(e) => {
                 return Err(self.lexer.create_error(ErrorKind::IOError(format!(
                     "failed to resolve path '{}': {}",
-                    file_path, e
+                    full_path.display(), e
                 ))))
             }
         };
@@ -105,7 +103,7 @@ impl Parser {
         if !self.included_files.insert(canonical_path.clone()) {
             return Err(self.lexer.create_error(ErrorKind::SyntaxError(format!(
                 "circular include detected: {}",
-                file_path
+                full_path.display()
             ))));
         }
 
@@ -115,7 +113,7 @@ impl Parser {
             Err(e) => {
                 return Err(self.lexer.create_error(ErrorKind::IOError(format!(
                     "couldn't read '{}': {}",
-                    file_path, e
+                    full_path.display(), e
                 ))))
             }
         };

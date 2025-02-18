@@ -1,10 +1,13 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use colored::*;
+use reqwest;
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+use tar::Archive;
 use walkdir::WalkDir;
 
 #[derive(Parser)]
@@ -35,6 +38,8 @@ enum Commands {
     },
     /// Clean the project
     Clean,
+    /// Install or update the standard library
+    InstallStd,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -60,37 +65,74 @@ impl ZedProject {
         Ok(Self { root, config })
     }
 
-    fn copy_stdlib(&self) -> Result<()> {
-        let stdlib_path = Path::new("..").join("std");
-        let project_stdlib_path = self.root.join("src").join("std");
+    async fn install_stdlib() -> Result<()> {
+        let home_dir = dirs::home_dir().context("Could not find home directory")?;
+        let std_dir = home_dir.join(".zed-lang/std/version/1.0.0");
 
-        // Create stdlib directory
-        fs::create_dir_all(&project_stdlib_path)?;
-
-        // Copy all .zed files from stdlib
-        for entry in fs::read_dir(&stdlib_path)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.extension().map_or(false, |ext| ext == "zed") {
-                fs::copy(&path, project_stdlib_path.join(path.file_name().unwrap()))?;
+        if std_dir.exists() {
+            println!("Standard library appears to be installed. Would you like to reinstall? [y/N]");
+            let mut input = String::new();
+            std::io::stdin().read_line(&mut input)?;
+            if !input.trim().eq_ignore_ascii_case("y") {
+                return Ok(());
             }
+            fs::remove_dir_all(&std_dir)?;
         }
+
+        println!("{} Downloading standard library...", "Info:".blue());
+
+        // Create the directories
+        fs::create_dir_all(&std_dir)?;
+
+        // Download the stdlib
+        let response = reqwest::get("https://zed-lang.vercel.app/std.tar.gz")
+            .await
+            .context("Failed to download standard library")?;
+
+        let bytes = response.bytes()
+            .await
+            .context("Failed to read response bytes")?;
+
+        // Extract the tar.gz file
+        let tar_gz = flate2::read::GzDecoder::new(Cursor::new(bytes));
+        let mut archive = Archive::new(tar_gz);
+        archive.unpack(&std_dir)?;
+
+        println!("{} Standard library installed successfully!", "Success:".green());
         Ok(())
     }
 
+    fn ensure_stdlib_exists() -> Result<PathBuf> {
+        let home_dir = dirs::home_dir().context("Could not find home directory")?;
+        let stdlib_path = home_dir.join(".zed-lang/std/version/1.0.0");
+
+        if !stdlib_path.exists() {
+            println!("Standard library not found. Would you like to install it? [Y/n]");
+            let mut input = String::new();
+            std::io::stdin().read_line(&mut input)?;
+            if input.trim().eq_ignore_ascii_case("n") {
+                anyhow::bail!("Standard library is required but not installed");
+            }
+
+            tokio::runtime::Runtime::new()?.block_on(Self::install_stdlib())?;
+        }
+
+        Ok(stdlib_path)
+    }
+
     fn create(&self) -> Result<()> {
+        // Ensure stdlib exists
+        Self::ensure_stdlib_exists()?;
+
         // Create project directories
-        let dirs = ["src", "src/std", "examples", "target"];
+        let dirs = ["src", "examples", "target"];
         for dir in dirs {
             fs::create_dir_all(self.root.join(dir))?;
         }
 
-        // Copy standard library
-        self.copy_stdlib()?;
-
         // Create main.zed
         let main_content = r#"/* Main entry point for Zed program */
-@include "std/io.zed";
+@include <std/io.zed>;
 
 println("Hello from Zed!");
 "#;
@@ -120,12 +162,15 @@ println("Hello from Zed!");
     }
 
     fn build(&self, release: bool) -> Result<()> {
+        // Ensure stdlib exists before building
+        Self::ensure_stdlib_exists()?;
+
         let target_dir = self.root.join("target");
         let build_type = if release { "release" } else { "debug" };
         let build_dir = target_dir.join(build_type);
         fs::create_dir_all(&build_dir)?;
 
-        // Find all .zed files including stdlib
+        // Find all .zed files in src directory
         let zed_files: Vec<_> = WalkDir::new(self.root.join("src"))
             .into_iter()
             .filter_map(|e| e.ok())
@@ -171,10 +216,14 @@ println("Hello from Zed!");
     }
 
     fn compile_to_asm(&self, source: &Path, output: &Path) -> Result<Output> {
+        let stdlib_path = Self::ensure_stdlib_exists()?;
+
         let output = Command::new("zedc")
             .arg(source)
             .arg("-o")
             .arg(output)
+            .arg("--stdlib-path")
+            .arg(stdlib_path)
             .output()
             .context("Failed to execute zedc. Is it installed?")?;
 
@@ -260,7 +309,8 @@ println("Hello from Zed!");
     }
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
@@ -279,6 +329,9 @@ fn main() -> Result<()> {
         Commands::Clean => {
             let project = ZedProject::load(&std::env::current_dir()?)?;
             project.clean()?;
+        }
+        Commands::InstallStd => {
+            ZedProject::install_stdlib().await?;
         }
     }
 

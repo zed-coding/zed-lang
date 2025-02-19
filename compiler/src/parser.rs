@@ -66,9 +66,9 @@ impl Parser {
                     match Self::get_default_stdlib_path() {
                         Ok(mut stdlib_path) => {
                             // Remove "std/" prefix and just use the filename
-                            stdlib_path.push(&path[4..]);  // Skip the "std/" part
+                            stdlib_path.push(&path[4..]); // Skip the "std/" part
                             (stdlib_path, true)
-                        },
+                        }
                         Err(e) => {
                             return Err(self.lexer.create_error(ErrorKind::IOError(format!(
                                 "couldn't determine stdlib path: {}",
@@ -94,7 +94,8 @@ impl Parser {
             Err(e) => {
                 return Err(self.lexer.create_error(ErrorKind::IOError(format!(
                     "failed to resolve path '{}': {}",
-                    full_path.display(), e
+                    full_path.display(),
+                    e
                 ))))
             }
         };
@@ -113,7 +114,8 @@ impl Parser {
             Err(e) => {
                 return Err(self.lexer.create_error(ErrorKind::IOError(format!(
                     "couldn't read '{}': {}",
-                    full_path.display(), e
+                    full_path.display(),
+                    e
                 ))))
             }
         };

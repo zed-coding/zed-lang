@@ -1,4 +1,6 @@
 // I/O Operations
+
+// Print a raw string (used internally for string literals)
 fn puts(str) {
     asm "movq %rdi, %rsi      # input string to rsi
          subq $256, %rsp      # allocate buffer space
@@ -54,6 +56,7 @@ fn puts(str) {
     : "rax", "rdi", "rsi", "rdx", "rcx", "r8";
 }
 
+// Print a single character
 fn putchar(c) {
     asm "movq %rdi, %rax      # get character
          pushq %rax           # save character to stack
@@ -68,6 +71,58 @@ fn putchar(c) {
     : "rax", "rdi", "rsi", "rdx";
 }
 
-fn println(str) {
-    puts(str);
+// Print a number
+fn print_number(n) {
+    // Handle negative numbers
+    if (n < 0) {
+        putchar(45);  // ASCII for '-'
+        n = 0 - n;    // Make positive
+    }
+
+    // Handle zero case
+    if (n == 0) {
+        putchar(48);  // ASCII for '0'
+        return;
+    }
+
+    // Convert number to string, digit by digit
+    asm "movq %rdi, %rax     # number to print
+         subq $32, %rsp      # allocate buffer
+         movq %rsp, %rsi     # buffer pointer
+         xorq %rcx, %rcx     # digit counter
+
+    .divide:
+         xorq %rdx, %rdx     # clear remainder
+         movq $10, %r8       # divisor
+         divq %r8            # divide by 10
+         addq $48, %rdx      # convert remainder to ASCII
+         movb %dl, (%rsi,%rcx)  # store digit
+         incq %rcx           # increment count
+         testq %rax, %rax    # check if more digits
+         jnz .divide         # continue if yes
+
+    .print:
+         decq %rcx           # move to last digit
+         movb (%rsi,%rcx), %al  # get digit
+         pushq %rcx          # save counter
+         movq %rax, %rdi     # set up for putchar
+         call putchar        # print digit
+         popq %rcx           # restore counter
+         testq %rcx, %rcx    # check if more digits
+         jns .print          # continue if yes
+
+         addq $32, %rsp      # restore stack"
+    :
+    : "r"[n]
+    : "rax", "rcx", "rdx", "rsi", "r8", "rdi";
+}
+
+// Print a string with newline
+fn println(x) {
+    puts(x);
+}
+
+// Print a numeric value with newline
+fn vprintln(x) {
+    print_number(x);
 }

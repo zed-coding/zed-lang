@@ -399,9 +399,19 @@ impl Lexer {
             }),
             Some('<') => {
                 let start_column = self.column;
-                self.advance(); // skip
+                self.advance();
 
-                // Check for "std/"
+                // First check for <= operator
+                if self.peek() == Some('=') {
+                    self.advance();
+                    return Ok(Token {
+                        token_type: TokenType::LessEqual,
+                        line: self.line,
+                        column: start_column,
+                    });
+                }
+
+                // Then check for std/ include
                 if self.position + 3 < self.input.len() {
                     if self.input[self.position] == 's'
                         && self.input[self.position + 1] == 't'
@@ -428,6 +438,7 @@ impl Lexer {
                     }
                 }
 
+                // Just a less-than operator
                 Ok(Token {
                     token_type: TokenType::Less,
                     line: self.line,
@@ -531,23 +542,6 @@ impl Lexer {
                         Err(self.create_error(ErrorKind::SyntaxError(
                             "unexpected '!' - did you mean '!='?".to_string(),
                         )))
-                    }
-                }
-                '<' => {
-                    self.advance();
-                    if self.peek() == Some('=') {
-                        self.advance();
-                        Ok(Token {
-                            token_type: TokenType::LessEqual,
-                            line: self.line,
-                            column: self.column - 2,
-                        })
-                    } else {
-                        Ok(Token {
-                            token_type: TokenType::Less,
-                            line: self.line,
-                            column: self.column - 1,
-                        })
                     }
                 }
                 '>' => {

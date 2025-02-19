@@ -6,7 +6,6 @@
  - String manipulation
  - Number operations
  - Variable scoping */
-
 @include <std/io.zed>;
 
 // Helper function to calculate power
@@ -49,7 +48,7 @@ fn is_prime(n) {
     }
     i = 2;
     while (i * i <= n) {
-        if ((n / i) * i == n) {  // Check divisibility (no modulo yet!)
+        if ((n / i) * i == n) { // Check divisibility (no modulo yet!)
             return 0;
         }
         i = i + 1;
@@ -64,7 +63,7 @@ println("=== Complex Zed Example ===\n");
 println("Testing power function...\n");
 p = power(2, 8);
 println("2^8 = ");
-println(p);
+vprintln(p);
 println("\n");
 
 // Calculate and print first 10 Fibonacci numbers
@@ -72,7 +71,7 @@ println("First 10 Fibonacci numbers:\n");
 i = 0;
 while (i < 10) {
     result = fib_loop(i);
-    println(result);
+    vprintln(result);
     println("\n");
     i = i + 1;
 }
@@ -84,7 +83,7 @@ i = 2;
 while (count < 5) {
     fib = fib_loop(i);
     if (is_prime(fib)) {
-        println(fib);
+        vprintln(fib);
         println("\n");
         count = count + 1;
     }
@@ -96,7 +95,6 @@ println("Complex calculation:\n");
 x = 10;
 y = 5;
 z = power(x + y, 2) + power(x - y, 2);
-println(z);
+vprintln(z);
 println("\n");
-
 println("=== Program Complete ===");

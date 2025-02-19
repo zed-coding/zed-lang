@@ -12,9 +12,9 @@ Zed is a systems programming language that compiles directly to x86-64 assembly.
 - Zero runtime overhead
 - First-class inline assembly support
 - C-like syntax with modern conveniences
-- Static typing
-- Comprehensive standard library
-- Built-in build system
+- Minimal but powerful standard library
+- Integrated build system
+- VSCode integration with syntax highlighting
 
 ## Language Fundamentals
 
@@ -46,9 +46,11 @@ str = "Hello, Zed!";
 The standard library is organized into modules:
 
 #### I/O Operations (`std/io.zed`)
-- `puts(str)`: Write string to stdout
-- `putchar(c)`: Write character to stdout
-- `println(str)`: Write string with newline
+- `puts(str)`: Write raw string to stdout
+- `putchar(c)`: Write single character
+- `print_number(n)`: Print numeric value
+- `println(x)`: Print string with newline
+- `vprintln(x)`: Print numeric value with newline
 
 #### Math Operations (`std/math.zed`)
 - `abs(x)`: Absolute value
@@ -57,21 +59,21 @@ The standard library is organized into modules:
 
 #### String Operations (`std/string.zed`)
 - `strlen(str)`: Get string length
-- `strcpy(dest, src)`: Copy string
+- `strcpy(dest, src)`: Copy string with null termination
 - `strcat(dest, src)`: Concatenate strings
 - `strcmp(s1, s2)`: Compare strings
 
 #### System Operations (`std/sys.zed`)
-- `exit(code)`: Exit program
-- `sleep(seconds)`: Sleep for seconds
+- `exit(code)`: Exit program with status code
+- `sleep(seconds)`: Sleep for specified seconds
 - `getpid()`: Get process ID
 - `time()`: Get system time
 
 #### Memory Operations (`std/memory.zed`)
-- `memcpy(dest, src, n)`: Copy memory
-- `memset(ptr, value, n)`: Set memory
+- `memcpy(dest, src, n)`: Copy n bytes of memory
+- `memset(ptr, value, n)`: Set n bytes to value
 - `malloc(size)`: Allocate memory
-- `free(ptr, size)`: Free memory
+- `free(ptr, size)`: Free allocated memory
 
 ### Control Flow
 
@@ -92,49 +94,57 @@ while (condition) {
 ### Functions
 
 ```zed
-// Function declaration
-fn my_function(param1, param2) {
-    return param1 + param2;
+// Function declaration with implementation
+fn add(a, b) {
+    return a + b;
 }
 
 // Function predeclaration
 fn complex_function();
 
-// Implementation
+// Later implementation
 fn complex_function() {
-    // code
+    // Implementation
 }
 ```
 
 ### Inline Assembly
 
-Zed provides powerful inline assembly support with operand constraints:
+Zed provides comprehensive inline assembly support with full constraint specifications:
 
 ```zed
-fn syscall(number) {
-    asm "movq %rdi, %rax    # syscall number
-         syscall"
-    :                       # outputs
-    : "r"[number]          # inputs
-    : "rax";               # clobbers
+fn example() {
+    asm "movq %rdi, %rax    # Move input to rax
+         addq $1, %rax      # Add 1
+         ret"               # Return value in rax
+    : "=r"[result]         # Output constraints
+    : "r"[input]           # Input constraints
+    : "rax";               # Clobber list
 }
 ```
 
-### Arrays and Memory
+Supported constraint types:
+- `r`: Register constraint
+- `=r`: Output register constraint
+- Memory clobbers: `"memory"`
+- Condition codes: `"cc"`
+
+### Arrays and Memory Management
 
 ```zed
-// Array operations
-buffer[0] = 65;  // ASCII 'A'
-value = buffer[0];
+// Basic array operations
+buffer[0] = 65;  // Store byte
+value = buffer[0];  // Load byte
 
-// Memory allocation
-ptr = malloc(1024);
-free(ptr, 1024);
+// Dynamic memory allocation
+ptr = malloc(1024);  // Allocate 1024 bytes
+memset(ptr, 0, 1024);  // Zero memory
+free(ptr, 1024);  // Free memory
 ```
 
 ## Build System
 
-Zed includes a robust build system (`zed`) with the following commands:
+The Zed build system (`zed`) provides the following commands:
 
 ```bash
 # Create new project
@@ -142,11 +152,11 @@ zed new project-name
 
 # Build project
 zed build
-zed build --release
+zed build --release  # With optimizations
 
 # Run project
 zed run
-zed run --release
+zed run --release    # Run optimized build
 
 # Clean build artifacts
 zed clean
@@ -157,37 +167,53 @@ zed install-std
 
 ## Project Structure
 
-A typical Zed project looks like:
+A typical Zed project has the following structure:
 
 ```
-my-project/
+project/
 ├── src/
-│   └── main.zed
-├── examples/
-├── target/
-├── zed.json
+│   └── main.zed    # Entry point
+├── examples/       # Example code
+├── target/        # Build outputs
+│   ├── debug/
+│   └── release/
+├── zed.json       # Project configuration
 └── .gitignore
+```
+
+### Project Configuration
+
+The `zed.json` file contains project metadata:
+
+```json
+{
+  "name": "project-name",
+  "version": "0.1.0",
+  "target": "main"
+}
 ```
 
 ## Installation
 
 ### Prerequisites
-- Rust toolchain (1.70.0+)
+- Rust toolchain (2021 edition or later)
 - GNU Assembler (as)
 - GNU Linker (ld)
 
-### Build from Source
+### Building from Source
 
 ```bash
 git clone https://github.com/zed-coding/zed-lang.git
-cd zed-lang
+cd zed-lang/compiler
 cargo build --release
-cargo install --path .
+
+cd ../build-sys
+cargo build --release
 ```
 
 ### Standard Library Installation
 
-The standard library is automatically installed in `~/.zed-lang/std/version/1.0.0/` when creating a new project. You can manually install or update it:
+The standard library is automatically installed to `~/.zed-lang/std/version/1.0.0/` when creating a new project. Manual installation:
 
 ```bash
 zed install-std
@@ -195,18 +221,40 @@ zed install-std
 
 ## VS Code Extension
 
-Zed includes syntax highlighting support for Visual Studio Code. Features include:
+The Zed VS Code extension provides:
 
-- Syntax highlighting for:
-  - Keywords
-  - Functions
-  - Strings
-  - Numbers
-  - Comments
-  - Inline assembly
-- Bracket matching
-- Auto-closing pairs
-- Comment toggling
+### Syntax Highlighting
+- Keywords and control flow
+- Functions and variables
+- Strings and numbers
+- Comments (single-line and block)
+- Inline assembly with register highlighting
+- Include directives
+
+### Editor Features
+- Bracket matching and auto-closing
+- Comment toggling (Ctrl+/)
+- Scope awareness
+- Custom theme optimized for Zed
+
+### Configuration
+The extension includes:
+- Language configuration for proper editing behavior
+- Dark theme optimized for Zed syntax
+- Full TextMate grammar for accurate highlighting
+
+## Language Internals
+
+### Compilation Process
+1. Lexical analysis (lexer.rs)
+2. Parsing and AST generation (parser.rs)
+3. Code generation to x86-64 (codegen.rs)
+4. Assembly and linking via GNU tools
+
+### Error Handling
+- Detailed error messages with source location
+- Syntax and semantic error detection
+- Color-coded error output
 
 ## Contributing
 
@@ -216,11 +264,17 @@ Zed includes syntax highlighting support for Visual Studio Code. Features includ
 4. Run tests
 5. Submit a pull request
 
+### Development Setup
+1. Install Rust and required tools
+2. Clone repository
+3. Build compiler and build system
+4. Install VS Code extension (optional)
+
+## License
+
+This project is licensed under the Apache License 2.0.
+
 ## Author
 
 Voltaged (VoltagedDebunked)  
 Email: rusindanilo@gmail.com
-
-## License
-
-Apache License 2.0

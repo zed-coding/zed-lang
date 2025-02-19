@@ -1,0 +1,226 @@
+pub const DOC_TEMPLATE: &str = r###"<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>{{ title }}</h1>
+            <nav>
+                <a href="index.html">Index</a>
+                {% if doc.includes %}
+                <span class="nav-separator">|</span>
+                <a href="#includes">Includes</a>
+                {% endif %}
+                {% if functions %}
+                <span class="nav-separator">|</span>
+                <a href="#functions">Functions</a>
+                {% endif %}
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        {% if module_docs_html %}
+        <div class="module-docs">
+            <h2>Module Documentation</h2>
+            {% for doc_html in module_docs_html %}
+            <div class="module-doc">
+                {{ doc_html | safe }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if doc.includes %}
+        <section id="includes">
+            <h2>Includes</h2>
+            <div class="includes">
+                <div class="std-includes">
+                    <h3>Standard Library</h3>
+                    {% for include in doc.includes %}
+                        {% if include.is_std %}
+                        <div class="include-item std-include">
+                            <code>&lt;{{ include.path }}&gt;</code>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                <div class="local-includes">
+                    <h3>Local Files</h3>
+                    {% for include in doc.includes %}
+                        {% if not include.is_std %}
+                        <div class="include-item local-include">
+                            <code>"{{ include.path }}"</code>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+        {% endif %}
+
+        {% if functions %}
+        <section id="functions">
+            <h2>Functions</h2>
+
+            <div class="function-list">
+                <h3>Quick Jump</h3>
+                <ul>
+                {% for function in functions %}
+                    <li>
+                        <a href="#fn-{{ function.name }}">{{ function.name }}</a>
+                        <span class="visibility-badge {% if function.is_public %}public{% else %}private{% endif %}">
+                            {% if function.is_public %}public{% else %}private{% endif %}
+                        </span>
+                    </li>
+                {% endfor %}
+                </ul>
+            </div>
+
+            <div class="functions">
+                {% for function in functions %}
+                <div class="function" id="fn-{{ function.name }}">
+                    <div class="function-header">
+                        <div class="function-signature">
+                            <span class="fn-keyword">fn</span>
+                            <span class="function-name">{{ function.name }}</span>
+                            <span class="function-params">
+                                ({% for param in function.params %}{{ param }}{% if not loop.last %}, {% endif %}{% endfor %})
+                            </span>
+                        </div>
+                        <div class="function-visibility">
+                            {% if function.is_public %}public{% else %}private{% endif %}
+                        </div>
+                    </div>
+
+                    {% if function.doc_html %}
+                    <div class="function-doc">
+                        {% for doc in function.doc_html %}
+                            {{ doc | safe }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {% if function.source_html %}
+                    <div class="function-source">
+                        <div class="source-header">
+                            <span>Source Code</span>
+                            <button class="toggle-source" onclick="toggleSource(this)">Hide</button>
+                        </div>
+                        <div class="source-code">
+                            {{ function.source_html | safe }}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <a href="#" class="back-to-top">↑ Back to top</a>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>Generated by zed-docgen</p>
+        </div>
+    </footer>
+
+    <script>
+        function toggleSource(button) {
+            const source = button.parentElement.nextElementSibling;
+            if (source.style.display === 'none') {
+                source.style.display = 'block';
+                button.textContent = 'Hide';
+            } else {
+                source.style.display = 'none';
+                button.textContent = 'Show';
+            }
+        }
+    </script>
+</body>
+</html>"###;
+
+pub const INDEX_TEMPLATE: &str = r###"<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - Index</title>
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>{{ title }}</h1>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="documentation-index">
+            <h2>Documentation Files</h2>
+            {% if files %}
+            <div class="search-box">
+                <input type="text" id="search" placeholder="Search files..." onkeyup="filterFiles()">
+            </div>
+            <ul class="file-list" id="fileList">
+            {% for file in files %}
+                <li class="file-item">
+                    <a href="{{ file }}.html">{{ file }}</a>
+                    <span class="file-type">Module</span>
+                </li>
+            {% endfor %}
+            </ul>
+            {% else %}
+            <p class="no-files">No documentation files found.</p>
+            {% endif %}
+        </div>
+
+        <div class="index-help">
+            <h3>Navigation</h3>
+            <ul>
+                <li>Click on any file to view its documentation</li>
+                <li>Use the search box to filter files</li>
+                <li>Each file contains:
+                    <ul>
+                        <li>Module documentation</li>
+                        <li>Included libraries</li>
+                        <li>Function documentation</li>
+                        <li>Source code</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>Generated by zed-docgen</p>
+        </div>
+    </footer>
+
+    <script>
+        function filterFiles() {
+            const input = document.getElementById('search');
+            const filter = input.value.toLowerCase();
+            const list = document.getElementById('fileList');
+            const items = list.getElementsByTagName('li');
+
+            for (let item of items) {
+                const text = item.textContent || item.innerText;
+                if (text.toLowerCase().indexOf(filter) > -1) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            }
+        }
+    </script>
+</body>
+</html>"###;

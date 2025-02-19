@@ -1,0 +1,105 @@
+/** Zed Math Operations Example
+ *
+ * This example demonstrates mathematical operations in Zed,
+ * including Fibonacci numbers and the standard math library.
+ * It shows proper documentation style and error handling.
+ */
+
+@include <std/io.zed>;    // For println, vprintln
+@include <std/math.zed>;  // For min, max, abs
+
+/** fibonacci
+ * Calculates the nth Fibonacci number using iteration.
+ *
+ * # Parameters
+ * - n: The position in the sequence (0-based)
+ *
+ * # Returns
+ * The nth Fibonacci number
+ *
+ * # Examples
+ * fibonacci(0) = 0
+ * fibonacci(1) = 1
+ * fibonacci(2) = 1
+ * fibonacci(3) = 2
+ * etc.
+ */
+fn fibonacci(n) {
+    if (n < 2) {
+        return n;
+    }
+
+    prev2 = 0;
+    prev1 = 1;
+    result = 0;
+    i = 2;
+
+    while (i <= n) {
+        result = prev1 + prev2;
+        prev2 = prev1;
+        prev1 = result;
+        i = i + 1;
+    }
+
+    return result;
+}
+
+/** print_divider
+ * Prints a visual divider for better output formatting.
+ */
+fn print_divider() {
+    println("------------------------\n");
+}
+
+// Main program
+
+// Print header
+println("=== Zed Math Examples ===\n");
+print_divider();
+
+// Fibonacci sequence demonstration
+println("Fibonacci Sequence:\n");
+i = 0;
+while (i < 10) {
+    println("fibonacci(");
+    vprintln(i);
+    println(") = ");
+    vprintln(fibonacci(i));
+    println("\n");
+    i = i + 1;
+}
+print_divider();
+
+// Standard library math functions
+println("Math Library Functions:\n");
+
+// Testing abs()
+x = 0 - 42;  // Note: Zed requires 0 - n for negative numbers
+println("abs(");
+vprintln(x);
+println(") = ");
+vprintln(abs(x));
+println("\n");
+
+// Testing min/max with positive numbers
+a = 50;
+b = 25;
+println("min(50, 25) = ");
+vprintln(min(a, b));
+println("\n");
+println("max(50, 25) = ");
+vprintln(max(a, b));
+println("\n");
+
+// Testing min/max with negative numbers
+c = 0 - 30;  // -30
+d = 0 - 15;  // -15
+println("min(-30, -15) = ");
+vprintln(min(c, d));
+println("\n");
+println("max(-30, -15) = ");
+vprintln(max(c, d));
+println("\n");
+
+print_divider();
+println("Example complete!\n");

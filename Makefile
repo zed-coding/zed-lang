@@ -10,6 +10,11 @@ compiler:
 	@cargo install --path .
 	@cd ..
 
+docgen:
+	@cd ./tools/docgen
+	@cargo install --path .
+	@cd -
+
 all:
 	$(MAKE) compiler
 	$(MAKE) build-sys

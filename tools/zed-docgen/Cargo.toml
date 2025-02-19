@@ -1,0 +1,17 @@
+[package]
+name = "zed-docgen"
+version = "0.1.0"
+edition = "2021"
+description = "Documentation generator for the Zed programming language"
+
+[dependencies]
+clap = { version = "4.4", features = ["derive"] }
+anyhow = "1.0"
+walkdir = "2.3"
+regex = "1.10"
+pulldown-cmark = "0.9"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tera = "1.19"
+syntect = "5.1"
+colored = "2.0"

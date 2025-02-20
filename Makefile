@@ -11,11 +11,18 @@ compiler:
 	@cd ..
 
 docgen:
-	@cd ./tools/docgen
+	@cd ./tools/zed-docgen
+	@cargo install --path .
+	@cd -
+
+fmt:
+	@cd ./tools/zed-fmt
 	@cargo install --path .
 	@cd -
 
 all:
 	$(MAKE) compiler
 	$(MAKE) build-sys
+	$(MAKE) docgen
+	$(MAKE) fmt
 	@echo "Zed is installed sucessfully!"

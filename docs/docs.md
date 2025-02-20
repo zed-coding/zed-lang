@@ -15,6 +15,8 @@ Zed is a systems programming language that compiles directly to x86-64 assembly.
 - Minimal but powerful standard library
 - Integrated build system
 - VSCode integration with syntax highlighting
+- Built-in documentation generator
+- Code formatting tool
 
 ## Language Fundamentals
 
@@ -142,7 +144,9 @@ memset(ptr, 0, 1024);  // Zero memory
 free(ptr, 1024);  // Free memory
 ```
 
-## Build System
+## Development Tools
+
+### Build System
 
 The Zed build system (`zed`) provides the following commands:
 
@@ -165,6 +169,56 @@ zed clean
 zed install-std
 ```
 
+### Documentation Generator (zed-docgen)
+
+The `zed-docgen` tool generates beautiful HTML documentation from Zed source files:
+
+```bash
+# Generate docs for a single file
+zed-docgen input.zed -o docs/
+
+# Generate docs for an entire project
+zed-docgen src/ -o docs/ --title "My Project"
+
+# Include private functions
+zed-docgen src/ -o docs/ --private
+```
+
+Features:
+- Markdown support in documentation comments
+- Syntax highlighted code blocks
+- Search functionality
+- Public/private function visibility
+- Function grouping and navigation
+- Responsive design
+- Print-friendly styling
+
+### Code Formatter (zed-fmt)
+
+The `zed-fmt` tool formats Zed code according to consistent style rules:
+
+```bash
+# Format a single file
+zed-fmt file.zed
+
+# Format and write changes
+zed-fmt --write file.zed
+
+# Check formatting only (useful for CI)
+zed-fmt --check src/
+
+# Format with custom settings
+zed-fmt --indent 2 --max-width 80 src/
+```
+
+Formatting rules:
+- Consistent indentation
+- Operator spacing
+- Line length limits
+- Comment preservation
+- Special handling for inline assembly
+- Empty line management
+
 ## Project Structure
 
 A typical Zed project has the following structure:
@@ -174,6 +228,7 @@ project/
 ├── src/
 │   └── main.zed    # Entry point
 ├── examples/       # Example code
+├── docs/          # Generated documentation
 ├── target/        # Build outputs
 │   ├── debug/
 │   └── release/
@@ -204,10 +259,20 @@ The `zed.json` file contains project metadata:
 
 ```bash
 git clone https://github.com/zed-coding/zed-lang.git
-cd zed-lang/compiler
+cd zed-lang
+
+# Build compiler
+cd compiler
 cargo build --release
 
-cd ../build-sys
+# Build tools
+cd ../tools/zed-docgen
+cargo build --release
+
+cd ../zed-fmt
+cargo build --release
+
+cd ../../build-sys
 cargo build --release
 ```
 
@@ -267,7 +332,7 @@ The extension includes:
 ### Development Setup
 1. Install Rust and required tools
 2. Clone repository
-3. Build compiler and build system
+3. Build compiler and tools
 4. Install VS Code extension (optional)
 
 ## License

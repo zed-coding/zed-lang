@@ -219,6 +219,53 @@ Formatting rules:
 - Special handling for inline assembly
 - Empty line management
 
+### Package Manager (zed-pkg)
+
+Zed provides a robust package management system through `zed-pkg`, allowing easy installation, publishing, and management of packages.
+
+### Package Registry
+
+The Zed package registry hosts community-created packages, enabling simple sharing and reuse of code.
+
+### Installing Packages
+
+```bash
+# Install a package
+zed-pkg install package_name
+
+# Install a specific version
+zed-pkg install package_name --version 1.0.0
+```
+
+Packages are automatically installed into `src/pkg/package_name.zed`.
+
+### Managing Packages
+
+```bash
+# List installed packages
+zed-pkg list
+
+# Remove a package
+zed-pkg remove package_name
+```
+
+### Publishing Packages
+
+To publish a package:
+1. Ensure your project has a `zed.json` with package metadata
+2. Run `zed-pkg publish`
+
+### Package Structure
+
+- Packages are stored in `src/pkg/`
+- Each package has a `.zed` file for code
+- Metadata is stored in a companion `.json` file
+
+### Best Practices
+- Use semantic versioning
+- Include clear documentation
+- Keep packages focused and modular
+
 ## Project Structure
 
 A typical Zed project has the following structure:
@@ -261,19 +308,8 @@ The `zed.json` file contains project metadata:
 git clone https://github.com/zed-coding/zed-lang.git
 cd zed-lang
 
-# Build compiler
-cd compiler
-cargo build --release
-
-# Build tools
-cd ../tools/zed-docgen
-cargo build --release
-
-cd ../zed-fmt
-cargo build --release
-
-cd ../../build-sys
-cargo build --release
+# Build everything
+make
 ```
 
 ### Standard Library Installation

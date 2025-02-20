@@ -1,11 +1,11 @@
 /* Fibonacci sequence with memoization
- This example demonstrates:
- - Complex recursion
- - Function calls
- - If/while control flow
- - String manipulation
- - Number operations
- - Variable scoping */
+This example demonstrates:
+- Complex recursion
+- Function calls
+- If/while control flow
+- String manipulation
+- Number operations
+- Variable scoping */
 @include <std/io.zed>;
 
 // Helper function to calculate power
@@ -20,7 +20,6 @@ fn power(base, exp) {
     }
     return result;
 }
-
 // Function to calculate fibonacci with a loop
 fn fib_loop(n) {
     if (n < 2) {
@@ -37,7 +36,6 @@ fn fib_loop(n) {
     }
     return b;
 }
-
 // Function to check if a number is prime
 fn is_prime(n) {
     if (n < 2) {
@@ -55,17 +53,14 @@ fn is_prime(n) {
     }
     return 1;
 }
-
 /* Main program starts here */
 println("=== Complex Zed Example ===\n");
-
 // Test power function
 println("Testing power function...\n");
 p = power(2, 8);
 println("2^8 = ");
 vprintln(p);
 println("\n");
-
 // Calculate and print first 10 Fibonacci numbers
 println("First 10 Fibonacci numbers:\n");
 i = 0;
@@ -75,7 +70,6 @@ while (i < 10) {
     println("\n");
     i = i + 1;
 }
-
 // Find first 5 prime Fibonacci numbers
 println("First 5 prime Fibonacci numbers:\n");
 count = 0;
@@ -89,7 +83,6 @@ while (count < 5) {
     }
     i = i + 1;
 }
-
 // Calculate a complex mathematical expression
 println("Complex calculation:\n");
 x = 10;
@@ -97,4 +90,4 @@ y = 5;
 z = power(x + y, 2) + power(x - y, 2);
 vprintln(z);
 println("\n");
-println("=== Program Complete ===");
+println("=== Program Complete ===")

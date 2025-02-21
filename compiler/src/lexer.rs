@@ -93,6 +93,7 @@ pub type Result<T> = std::result::Result<T, CompilerError>;
 #[allow(dead_code)]
 pub enum TokenType {
     Number(i64),
+    Align,
     Identifier(String),
     Plus,
     Minus,
@@ -133,6 +134,7 @@ impl fmt::Display for TokenType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             TokenType::Number(n) => write!(f, "number {}", n),
+            TokenType::Align => write!(f, "@align"),
             TokenType::Identifier(s) => write!(f, "identifier {}", s),
             TokenType::Plus => write!(f, "+"),
             TokenType::Minus => write!(f, "-"),
@@ -663,6 +665,14 @@ impl Lexer {
         let start_column = self.column;
         let mut identifier = String::new();
 
+        // Handle @ prefix for directives
+        let is_directive = if let Some('@') = self.peek() {
+            self.advance();
+            true
+        } else {
+            false
+        };
+
         while let Some(ch) = self.peek() {
             if !ch.is_alphanumeric() && ch != '_' {
                 break;
@@ -671,15 +681,25 @@ impl Lexer {
             self.advance();
         }
 
-        let token_type = match identifier.as_str() {
-            "if" => TokenType::If,
-            "else" => TokenType::Else,
-            "while" => TokenType::While,
-            "fn" => TokenType::Function,
-            "return" => TokenType::Return,
-            "from" => TokenType::From,
-            "asm" => TokenType::Asm,
-            _ => TokenType::Identifier(identifier),
+        let token_type = if is_directive {
+            match identifier.as_str() {
+                "align" => TokenType::Align,
+                "include" => TokenType::Include,
+                _ => return Err(self.create_error(ErrorKind::SyntaxError(
+                    format!("unknown directive @{}", identifier)
+                ))),
+            }
+        } else {
+            match identifier.as_str() {
+                "if" => TokenType::If,
+                "else" => TokenType::Else,
+                "while" => TokenType::While,
+                "fn" => TokenType::Function,
+                "return" => TokenType::Return,
+                "from" => TokenType::From,
+                "asm" => TokenType::Asm,
+                _ => TokenType::Identifier(identifier),
+            }
         };
 
         Ok(Token {

@@ -91,11 +91,32 @@ impl CodeGenerator {
         }
     }
 
+    fn align_stack(&mut self, alignment: i64) {
+        // Save original stack pointer
+        self.emit("    movq %rsp, %rax");
+
+        // Align stack
+        self.emit(&format!("    andq ${}, %rsp", -(alignment)));
+
+        // Store original stack pointer for restoration
+        self.emit("    pushq %rax");
+    }
+
+    fn restore_stack(&mut self) {
+        // Restore original stack pointer
+        self.emit("    popq %rsp");
+    }
+
     fn generate_node(&mut self, node: &AstNode) {
         match node {
             AstNode::Number(n) => {
                 self.emit(&format!("    pushq ${}", n));
             }
+            AstNode::Align(alignment, node) => {
+                self.align_stack(*alignment);
+                self.generate_node(node);
+                self.restore_stack();
+            },
             AstNode::Variable(name) => {
                 let offset = self.get_var_location(name);
                 self.emit(&format!("    pushq {}(%rbp)", offset));

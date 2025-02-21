@@ -2,6 +2,7 @@
 #[allow(dead_code)]
 pub enum AstNode {
     Number(i64),
+    Align(i64, Box<AstNode>),
     Variable(String),
     BinaryOp(Box<AstNode>, BinaryOperator, Box<AstNode>),
     Assignment(String, Box<AstNode>),

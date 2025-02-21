@@ -1,0 +1,8 @@
+{
+  "name": "color",
+  "version": "0.1.0",
+  "description": "Terminal text coloring library for Zed",
+  "author": "Voltaged",
+  "repository": "None",
+  "keywords": ["zed", "color", "terminal"]
+}

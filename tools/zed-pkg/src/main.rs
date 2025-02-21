@@ -5,10 +5,11 @@ use flate2::read::GzDecoder;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use tar::Archive;
+use tar::{Builder, Archive};
 use tempfile::TempDir;
+use walkdir::WalkDir;
 
 const REGISTRY_URL: &str = "https://zed-pkg.vercel.app/api/packages";
 
@@ -31,6 +32,16 @@ enum Commands {
         #[arg(short, long)]
         version: Option<String>,
     },
+    /// Publish a package to the registry
+    Publish {
+        /// Path to the package directory (default: current directory)
+        #[arg(default_value = ".")]
+        path: String,
+
+        /// Force publish without confirmation
+        #[arg(short, long)]
+        force: bool,
+    },
     /// List installed packages
     List,
     /// Remove a package
@@ -45,6 +56,9 @@ struct PackageMetadata {
     name: String,
     version: String,
     description: Option<String>,
+    author: Option<String>,
+    repository: Option<String>,
+    keywords: Option<Vec<String>>,
 }
 
 fn main() -> Result<()> {
@@ -56,6 +70,7 @@ fn main() -> Result<()> {
 
     match cli.command {
         Commands::Install { package, version } => install_package(&package, version)?,
+        Commands::Publish { path, force } => publish_package(&path, force)?,
         Commands::List => list_packages()?,
         Commands::Remove { package } => remove_package(&package)?,
     }
@@ -146,8 +161,130 @@ fn install_package(package: &str, version: Option<String>) -> Result<()> {
     Ok(())
 }
 
+fn publish_package(path: &str, force: bool) -> Result<()> {
+    // Read package metadata from zed.json
+    let metadata_path = Path::new(path).join("zed.json");
+    if !metadata_path.exists() {
+        println!("{} No zed.json found in the directory", "Error:".red());
+        return Ok(());
+    }
+
+    let metadata_str = fs::read_to_string(&metadata_path)
+        .context("Failed to read zed.json")?;
+
+    let metadata: PackageMetadata = serde_json::from_str(&metadata_str)
+        .context("Invalid zed.json format")?;
+
+    // Validate required fields
+    if metadata.name.is_empty() {
+        println!("{} Package name is required", "Error:".red());
+        return Ok(());
+    }
+
+    if metadata.version.is_empty() {
+        println!("{} Package version is required", "Error:".red());
+        return Ok(());
+    }
+
+    // Confirmation prompt
+    if !force {
+        println!("Publishing package:");
+        println!("  Name:    {}", metadata.name.bright_blue());
+        println!("  Version: {}", metadata.version.bright_green());
+
+        print!("Confirm publish? (y/N) ");
+        std::io::stdout().flush()?;
+
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+
+        if input.trim().to_lowercase() != "y" {
+            println!("{} Publish cancelled", "Cancelled:".yellow());
+            return Ok(());
+        }
+    }
+
+    // Create package tarball
+    let tarball_path = create_package_tarball(path, &metadata)?;
+
+    // Prepare for upload
+    let client = Client::new();
+
+    // Print out full metadata for debugging
+    println!("Attempting to publish metadata:");
+    println!("{}", serde_json::to_string_pretty(&metadata)?);
+
+    // Upload package metadata
+    let metadata_response = client.post(REGISTRY_URL)
+        .json(&metadata)
+        .send()
+        .context("Failed to send package metadata request")?;
+
+    // Enhanced error handling
+    if !metadata_response.status().is_success() {
+        let status = metadata_response.status();
+        let error_body = metadata_response.text()
+            .unwrap_or_else(|_| "Unable to read error body".to_string());
+
+        println!("{} Failed to publish package metadata", "Error:".red());
+        println!("Status Code: {}", status);
+        println!("Error Response: {}", error_body);
+
+        return Err(anyhow::anyhow!(
+            "Metadata upload failed. Status: {}, Body: {}",
+            status,
+            error_body
+        ));
+    }
+
+    // Upload package file
+    let upload_url = format!("{}/upload", REGISTRY_URL);
+    let mut tarball_file = File::open(&tarball_path)?;
+    let mut tarball_content = Vec::new();
+    tarball_file.read_to_end(&mut tarball_content)?;
+
+    let upload_response = client.post(&upload_url)
+        .header("Content-Type", "application/gzip")
+        .body(tarball_content)
+        .send()
+        .context("Failed to upload package file")?;
+
+    if upload_response.status().is_success() {
+        println!("{} Package published successfully!", "Success:".green());
+    } else {
+        let status = upload_response.status();
+        let error_body = upload_response.text()
+            .unwrap_or_else(|_| "Unable to read error body".to_string());
+
+        println!("{} Failed to upload package file", "Error:".red());
+        println!("Status Code: {}", status);
+        println!("Error Response: {}", error_body);
+    }
+
+    // Clean up tarball
+    fs::remove_file(tarball_path)?;
+
+    Ok(())
+}
+
+fn create_package_tarball(path: &str, metadata: &PackageMetadata) -> Result<String> {
+    let tarball_filename = format!("{}-{}.tar.gz", metadata.name, metadata.version);
+    let tarball_path = std::env::temp_dir().join(tarball_filename);
+
+    // Create tarball
+    let tarball = File::create(&tarball_path)?;
+    let enc = flate2::write::GzEncoder::new(tarball, flate2::Compression::default());
+    let mut tar = Builder::new(enc);
+
+    // Add all files in the directory to the tarball
+    tar.append_dir_all(".", path)?;
+    tar.finish()?;
+
+    Ok(tarball_path.to_string_lossy().into_owned())
+}
+
 fn find_zed_file(dir: &Path) -> Result<PathBuf> {
-    for entry in walkdir::WalkDir::new(dir) {
+    for entry in WalkDir::new(dir) {
         let entry = entry?;
         if entry.file_type().is_file() {
             let path = entry.path();

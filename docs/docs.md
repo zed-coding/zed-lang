@@ -295,6 +295,60 @@ The `zed.json` file contains project metadata:
 }
 ```
 
+## Memory Alignment
+
+Zed provides fine-grained control over memory alignment through the `@align` directive. This is crucial for:
+- SIMD operations requiring aligned memory access
+- Cache-line optimization
+- Hardware requirements
+- DMA and device interactions
+
+#### Basic Usage
+
+```zed
+// Align variable allocation
+@align(16)
+buffer = malloc(1024);
+
+// Align function stack frame
+@align(16)
+fn process_vectors(data) {
+    // Function body...
+}
+```
+
+#### Alignment Rules
+
+- Alignment must be a positive power of 2 (2, 4, 8, 16, 32, etc.)
+- Multiple align directives are not allowed on the same declaration
+- Alignment applies to the immediately following declaration or definition
+
+#### Use Cases
+
+1. **SIMD Operations**
+```zed
+@align(16)
+fn vector_add(a, b) {
+    asm "vmovdqu %rdi, %xmm0
+         vmovdqu %rsi, %xmm1
+         vpaddd  %xmm0, %xmm1, %xmm0";
+}
+```
+
+2. **Cache Line Optimization**
+```zed
+@align(64)  // Common cache line size
+buffer = malloc(256);
+```
+
+3. **Hardware Requirements**
+```zed
+@align(4096)  // Page size alignment
+page = malloc(4096);
+```
+
+The assembler ensures proper alignment by padding as needed. The stack is automatically realigned when entering aligned functions to maintain the specified alignment requirements.
+
 ## Installation
 
 ### Prerequisites

@@ -1,0 +1,95 @@
+/* Zed Color Library
+ * Provides terminal text coloring and styling
+ */
+
+@include <std/io.zed>;
+
+// Text color codes
+const BLACK   = "30";
+const RED     = "31";
+const GREEN   = "32";
+const YELLOW  = "33";
+const BLUE    = "34";
+const MAGENTA = "35";
+const CYAN    = "36";
+const WHITE   = "37";
+
+// Background color codes
+const BG_BLACK   = "40";
+const BG_RED     = "41";
+const BG_GREEN   = "42";
+const BG_YELLOW  = "43";
+const BG_BLUE    = "44";
+const BG_MAGENTA = "45";
+const BG_CYAN    = "46";
+const BG_WHITE   = "47";
+
+// Text styles
+const BOLD      = "1";
+const DIM       = "2";
+const ITALIC    = "3";
+const UNDERLINE = "4";
+const BLINK     = "5";
+const REVERSE   = "7";
+const HIDDEN    = "8";
+
+// Color formatting function
+fn color(text, fg, bg, styles) {
+    // Create ANSI escape sequence
+    codes = [];
+
+    // Add styles
+    if (styles) {
+        for (style in styles) {
+            codes = codes + [style];
+        }
+    }
+
+    // Add foreground color
+    if (fg) {
+        codes = codes + [fg];
+    }
+
+    // Add background color
+    if (bg) {
+        codes = codes + [bg];
+    }
+
+    // Construct full ANSI escape sequence
+    if (codes) {
+        prefix = "\x1b[" + join(codes, ";") + "m";
+        suffix = "\x1b[0m";
+        return prefix + text + suffix;
+    }
+
+    return text;
+}
+
+// Convenience functions for common colors
+fn red(text)   { return color(text, RED); }
+fn green(text) { return color(text, GREEN); }
+fn blue(text)  { return color(text, BLUE); }
+fn yellow(text){ return color(text, YELLOW); }
+fn cyan(text)  { return color(text, CYAN); }
+
+// Styled variations
+fn bold(text)      { return color(text, "", "", [BOLD]); }
+fn italic(text)    { return color(text, "", "", [ITALIC]); }
+fn underline(text) { return color(text, "", "", [UNDERLINE]); }
+
+// Combine styling
+fn bold_red(text)   { return color(text, RED, "", [BOLD]); }
+fn bold_green(text) { return color(text, GREEN, "", [BOLD]); }
+
+// Utility to join arrays (since Zed doesn't have built-in join)
+fn join(arr, sep) {
+    if (!arr) { return ""; }
+
+    result = arr[0];
+    i = 1;
+    while (i < strlen(arr)) {
+        result = result + sep + arr[i];
+        i = i + 1;
+    }
+    return result;
+}

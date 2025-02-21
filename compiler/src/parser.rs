@@ -369,6 +369,7 @@ impl Parser {
             TokenType::While => self.parse_while_statement(),
             TokenType::LBrace => self.parse_block(),
             TokenType::Asm => self.parse_inline_asm(),
+            TokenType::Align => self.parse_align_directive(),
             _ => {
                 let expr = self.parse_expression()?;
                 self.eat(TokenType::Semicolon)?;
@@ -444,6 +445,36 @@ impl Parser {
         }
 
         Ok(expr)
+    }
+
+    fn parse_align_directive(&mut self) -> Result<AstNode> {
+        self.eat(TokenType::Align)?;
+        self.eat(TokenType::LParen)?;
+
+        let alignment = match &self.current_token.token_type {
+            TokenType::Number(n) => {
+                let value = *n;
+                self.eat(TokenType::Number(value))?;
+
+                // Validate alignment is positive power of 2
+                if value <= 0 || (value & (value - 1)) != 0 {
+                    return Err(self.lexer.create_error(ErrorKind::SyntaxError(
+                        format!("alignment must be positive power of 2, got {}", value)
+                    )));
+                }
+                value
+            },
+            _ => return Err(self.lexer.create_error(ErrorKind::SyntaxError(
+                "expected number for alignment".to_string()
+            ))),
+        };
+
+        self.eat(TokenType::RParen)?;
+
+        // Parse the node the alignment applies to
+        let node = self.parse_statement()?;
+
+        Ok(AstNode::Align(alignment, Box::new(node)))
     }
 
     fn parse_comparison(&mut self) -> Result<AstNode> {
